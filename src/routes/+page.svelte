@@ -1,0 +1,227 @@
+<script lang="ts">
+	import Canvas from '../lib/components/Canvas.svelte';
+	import type { FlowNode, FlowEdge, NodeTypes } from '../lib/types/index.js';
+	import TextNode from './TextNode.svelte';
+	import ProcessNode from './ProcessNode.svelte';
+	import OutputNode from './OutputNode.svelte';
+	import Minimap from '$lib/components/Minimap.svelte';
+
+	// Reference to canvas component
+	let canvasRef: ReturnType<typeof Canvas> | undefined;
+
+	// Define initial nodes
+	let nodes: FlowNode[] = $state([
+		{
+			id: 'node-1',
+			type: 'text',
+			position: { x: 100, y: 100 },
+			data: { label: 'Input A', color: '#4a9eff' }
+		},
+		{
+			id: 'node-2',
+			type: 'text',
+			position: { x: 100, y: 250 },
+			data: { label: 'Input B', color: '#ff6b6b' }
+		},
+		{
+			id: 'node-3',
+			type: 'process',
+			position: { x: 350, y: 150 },
+			data: { operation: 'Merge', description: 'Combines two inputs' }
+		},
+		{
+			id: 'node-4',
+			type: 'output',
+			position: { x: 600, y: 175 },
+			data: { title: 'Result' }
+		}
+	]);
+
+	// Define initial edges
+	let edges: FlowEdge[] = $state([
+		{
+			id: 'edge-1',
+			source: 'node-1',
+			source_handle: 'out',
+			target: 'node-3',
+			target_handle: 'input-1',
+			type: 'bezier'
+		},
+		{
+			id: 'edge-2',
+			source: 'node-2',
+			source_handle: 'out',
+			target: 'node-3',
+			target_handle: 'input-2',
+			type: 'bezier'
+		},
+		{
+			id: 'edge-3',
+			source: 'node-3',
+			source_handle: 'output',
+			target: 'node-4',
+			target_handle: 'in',
+			type: 'bezier'
+		}
+	]);
+
+	// Register node types
+	const nodeTypes: NodeTypes = {
+		text: TextNode,
+		process: ProcessNode,
+		output: OutputNode
+	};
+
+	// Canvas configuration
+	const config = {
+		min_zoom: 0.5,
+		max_zoom: 2,
+		snap_to_grid: false,
+		allow_delete: true,
+		default_edge_type: 'bezier' as const
+	};
+
+	// Callbacks
+	const callbacks = {
+		on_node_click: (nodeId: string) => console.log('Node clicked:', nodeId),
+		on_connect: (edge: FlowEdge) => {
+			console.log('New connection:', edge);
+			edges.push(edge);
+		},
+		on_delete: (nodeIds: string[], edgeIds: string[]) => {
+			console.log('Deleted:', { nodeIds, edgeIds });
+			nodes = nodes.filter(n => !nodeIds.includes(n.id));
+			edges = edges.filter(e => !edgeIds.includes(e.id));
+		}
+	};
+
+	// Add new node function
+	function addNode() {
+		const flow = canvasRef?.getFlow();
+		if (!flow) return;
+		
+		const newNode: FlowNode = {
+			id: `node-${Date.now()}`,
+			type: 'text',
+			position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
+			data: { label: `Node ${flow.nodes.length + 1}`, color: '#22c55e' }
+		};
+		flow.addNode(newNode);
+	}
+
+	// Export flow as JSON
+	function exportFlow() {
+		const flow = canvasRef?.getFlow();
+		if (!flow) return;
+		
+		const data = flow.toJSON();
+		const json = JSON.stringify(data, null, 2);
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'flow.json';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	// Clear all nodes and edges
+	function clearFlow() {
+		const flow = canvasRef?.getFlow();
+		if (!flow) return;
+		
+		if (confirm('Clear all nodes and edges?')) {
+			// Remove all nodes (this also removes connected edges)
+			const nodeIds = flow.nodes.map(n => n.id);
+			nodeIds.forEach(id => flow.removeNode(id));
+		}
+	}
+</script>
+
+<div class="demo-container">
+	<div class="controls">
+		<h1>kaykay Flow Editor Demo</h1>
+		<div class="button-group">
+			<button onclick={addNode}>Add Node</button>
+			<button onclick={exportFlow}>Export JSON</button>
+			<button onclick={clearFlow} class="danger">Clear All</button>
+		</div>
+		<p class="hint">
+			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
+			Connect: Drag from output to input | Delete: Select & press Delete/Backspace
+		</p>
+	</div>
+	
+	<div class="canvas-wrapper">
+		<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} {config} {callbacks} >
+			<Minimap />
+		</Canvas>
+	</div>
+</div>
+
+<style>
+	.demo-container {
+		width: 100vw;
+		height: 100vh;
+		display: flex;
+		flex-direction: column;
+		background: #0f0f1e;
+		color: white;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	}
+
+	.controls {
+		padding: 1rem;
+		background: #1a1a2e;
+		border-bottom: 1px solid #333;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.button-group {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.controls h1 {
+		margin: 0;
+		font-size: 1.5rem;
+		flex: 1;
+	}
+
+	.controls button {
+		padding: 0.5rem 1rem;
+		background: #4a9eff;
+		color: white;
+		border: none;
+		cursor: pointer;
+		font-size: 0.9rem;
+		transition: background 0.2s;
+	}
+
+	.controls button:hover {
+		background: #2d7fd3;
+	}
+
+	.controls button.danger {
+		background: #dc2626;
+	}
+
+	.controls button.danger:hover {
+		background: #b91c1c;
+	}
+
+	.hint {
+		margin: 0;
+		font-size: 0.85rem;
+		color: #888;
+	}
+
+	.canvas-wrapper {
+		flex: 1;
+		position: relative;
+		overflow: hidden;
+	}
+</style>

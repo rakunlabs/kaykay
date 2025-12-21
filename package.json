@@ -1,0 +1,52 @@
+{
+  "name": "kaykay",
+  "version": "0.1.0",
+  "description": "A Svelte 5 flow/node editor library with typed port connections",
+  "type": "module",
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite dev",
+    "build": "svelte-kit sync && svelte-package",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "oxlint",
+    "format": "prettier --write ."
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^3.3.1",
+    "@sveltejs/kit": "^2.9.0",
+    "@sveltejs/package": "^2.3.7",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "oxlint": "^1.34.0",
+    "svelte": "^5.14.1",
+    "svelte-check": "^4.1.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  },
+  "keywords": [
+    "svelte",
+    "svelte5",
+    "flow",
+    "node-editor",
+    "graph",
+    "diagram"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rakunlabs/kaykay"
+  }
+}

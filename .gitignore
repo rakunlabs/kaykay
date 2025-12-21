@@ -1,0 +1,10 @@
+node_modules
+dist
+.svelte-kit
+build
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+*.tgz
