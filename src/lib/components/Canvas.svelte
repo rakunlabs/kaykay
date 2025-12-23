@@ -68,12 +68,13 @@
 	// Handle mouse down for panning
 	function handleMouseDown(e: MouseEvent) {
 		const target = e.target as HTMLElement;
-		// Check if clicking on canvas background (not on a node or handle)
+		// Check if clicking on canvas background (not on a node, handle, or edge)
 		const isOnNode = target.closest('[data-node-id]');
 		const isOnHandle = target.closest('[data-handle-id]');
+		const isOnEdge = target.closest('.kaykay-edge');
 		
-		// Only pan on middle mouse or when clicking on canvas background (not nodes/handles)
-		if (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle)) {
+		// Only pan on middle mouse or when clicking on canvas background (not nodes/handles/edges)
+		if (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge)) {
 			isPanning = true;
 			lastMousePos = { x: e.clientX, y: e.clientY };
 			flow.clearSelection();
@@ -121,7 +122,6 @@
 				const nodeEl = handleEl.closest('[data-node-id]') as HTMLElement;
 				const nodeId = nodeEl?.getAttribute('data-node-id');
 				
-				// Only connect to input handles
 				if (handleId && nodeId && handleType === 'input') {
 					flow.finishConnection(nodeId, handleId);
 					return;

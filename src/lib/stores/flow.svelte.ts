@@ -82,7 +82,11 @@ export class FlowState {
 	}
 
 	removeNode(node_id: string): void {
-		// Remove connected edges first
+		// Remove child nodes first (recursively)
+		const children = this.getChildNodes(node_id);
+		children.forEach((child) => this.removeNode(child.id));
+
+		// Remove connected edges
 		this.edges = this.edges.filter((e) => e.source !== node_id && e.target !== node_id);
 		// Remove node
 		this.nodes = this.nodes.filter((n) => n.id !== node_id);
@@ -122,6 +126,89 @@ export class FlowState {
 
 	getNode(node_id: string): NodeState | undefined {
 		return this.nodes.find((n) => n.id === node_id);
+	}
+
+	// ============ Group Operations ============
+
+	// Get children of a group node
+	getChildNodes(parent_id: string): NodeState[] {
+		return this.nodes.filter((n) => n.parent_id === parent_id);
+	}
+
+	// Get absolute position of a node (accounting for parent hierarchy)
+	getAbsolutePosition(node_id: string): Position {
+		const node = this.getNode(node_id);
+		if (!node) return { x: 0, y: 0 };
+
+		if (!node.parent_id) {
+			return { ...node.position };
+		}
+
+		const parent_pos = this.getAbsolutePosition(node.parent_id);
+		return {
+			x: parent_pos.x + node.position.x,
+			y: parent_pos.y + node.position.y,
+		};
+	}
+
+	// Set parent of a node (for grouping/ungrouping)
+	setNodeParent(node_id: string, parent_id: string | undefined): void {
+		const node = this.getNode(node_id);
+		if (!node) return;
+
+		// Prevent circular references
+		if (parent_id && this.isDescendantOf(parent_id, node_id)) {
+			return;
+		}
+
+		const old_absolute = this.getAbsolutePosition(node_id);
+
+		if (parent_id) {
+			// Setting a new parent - convert position to relative
+			const parent_absolute = this.getAbsolutePosition(parent_id);
+			node.position = {
+				x: old_absolute.x - parent_absolute.x,
+				y: old_absolute.y - parent_absolute.y,
+			};
+		} else if (node.parent_id) {
+			// Removing parent - convert position to absolute
+			node.position = old_absolute;
+		}
+
+		node.parent_id = parent_id;
+	}
+
+	// Check if a node is a descendant of another node
+	isDescendantOf(node_id: string, potential_ancestor_id: string): boolean {
+		const node = this.getNode(node_id);
+		if (!node || !node.parent_id) return false;
+		if (node.parent_id === potential_ancestor_id) return true;
+		return this.isDescendantOf(node.parent_id, potential_ancestor_id);
+	}
+
+	// Find which group node contains a point (for drag-and-drop into groups)
+	findGroupAtPosition(position: Position, exclude_ids: string[] = []): NodeState | undefined {
+		// Find all group nodes (nodes with type 'group') that contain the position
+		// Return the smallest one (most deeply nested)
+		const groups = this.nodes
+			.filter((n) => n.type === 'group' && !exclude_ids.includes(n.id))
+			.filter((n) => {
+				const abs_pos = this.getAbsolutePosition(n.id);
+				return (
+					position.x >= abs_pos.x &&
+					position.x <= abs_pos.x + n.computed_width &&
+					position.y >= abs_pos.y &&
+					position.y <= abs_pos.y + n.computed_height
+				);
+			})
+			.sort((a, b) => {
+				// Sort by area (smallest first)
+				const area_a = a.computed_width * a.computed_height;
+				const area_b = b.computed_width * b.computed_height;
+				return area_a - area_b;
+			});
+
+		return groups[0];
 	}
 
 	// ============ Handle Operations ============
@@ -216,6 +303,13 @@ export class FlowState {
 
 	getEdge(edge_id: string): FlowEdge | undefined {
 		return this.edges.find((e) => e.id === edge_id);
+	}
+
+	updateEdge(edge_id: string, updates: Partial<FlowEdge>): void {
+		const edge = this.edges.find((e) => e.id === edge_id);
+		if (edge) {
+			Object.assign(edge, updates);
+		}
 	}
 
 	// ============ Edge Waypoints ============
@@ -455,6 +549,8 @@ export class FlowState {
 				data: { ...node.data },
 				width: node.width,
 				height: node.height,
+				parent_id: node.parent_id,
+				z_index: node.z_index,
 			})),
 			edges: this.edges.map((edge) => ({
 				id: edge.id,
@@ -465,6 +561,9 @@ export class FlowState {
 				type: edge.type,
 				label: edge.label,
 				waypoints: edge.waypoints ? edge.waypoints.map((wp) => ({ ...wp })) : undefined,
+				style: edge.style,
+				animated: edge.animated,
+				color: edge.color,
 			})),
 		};
 	}

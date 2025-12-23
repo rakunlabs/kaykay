@@ -4,6 +4,7 @@
 	import TextNode from './TextNode.svelte';
 	import ProcessNode from './ProcessNode.svelte';
 	import OutputNode from './OutputNode.svelte';
+	import GroupNode from './GroupNode.svelte';
 	import Minimap from '../lib/components/Minimap.svelte';
 
 	// Reference to canvas component
@@ -12,27 +13,37 @@
 	// Define initial nodes
 	let nodes: FlowNode[] = $state([
 		{
+			id: 'group-1',
+			type: 'group',
+			position: { x: 50, y: 50 },
+			width: 280,
+			height: 280,
+			data: { label: 'Inputs', color: '#4a9eff' }
+		},
+		{
 			id: 'node-1',
 			type: 'text',
-			position: { x: 100, y: 100 },
-			data: { label: 'Input A', color: '#4a9eff' }
+			position: { x: 50, y: 50 },
+			data: { label: 'Input A', color: '#4a9eff' },
+			parent_id: 'group-1'
 		},
 		{
 			id: 'node-2',
 			type: 'text',
-			position: { x: 100, y: 250 },
-			data: { label: 'Input B', color: '#ff6b6b' }
+			position: { x: 50, y: 150 },
+			data: { label: 'Input B', color: '#ff6b6b' },
+			parent_id: 'group-1'
 		},
 		{
 			id: 'node-3',
 			type: 'process',
-			position: { x: 350, y: 150 },
+			position: { x: 400, y: 150 },
 			data: { operation: 'Merge', description: 'Combines two inputs' }
 		},
 		{
 			id: 'node-4',
 			type: 'output',
-			position: { x: 600, y: 175 },
+			position: { x: 650, y: 175 },
 			data: { title: 'Result' }
 		}
 	]);
@@ -69,7 +80,8 @@
 	const nodeTypes: NodeTypes = {
 		text: TextNode,
 		process: ProcessNode,
-		output: OutputNode
+		output: OutputNode,
+		group: GroupNode
 	};
 
 	// Canvas configuration
@@ -107,6 +119,25 @@
 			data: { label: `Node ${flow.nodes.length + 1}`, color: '#22c55e' }
 		};
 		flow.addNode(newNode);
+	}
+
+	// Add new group function
+	function addGroup() {
+		const flow = canvasRef?.getFlow();
+		if (!flow) return;
+		
+		const colors = ['#4a9eff', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
+		const color = colors[Math.floor(Math.random() * colors.length)];
+		
+		const newGroup: FlowNode = {
+			id: `group-${Date.now()}`,
+			type: 'group',
+			position: { x: 100 + Math.random() * 100, y: 100 + Math.random() * 100 },
+			width: 250,
+			height: 200,
+			data: { label: `Group ${flow.nodes.filter(n => n.type === 'group').length + 1}`, color }
+		};
+		flow.addNode(newGroup);
 	}
 
 	// Export flow as JSON
@@ -185,6 +216,7 @@
 		<h1>kaykay - Flow Editor Demo</h1>
 		<div class="button-group">
 			<button onclick={addNode}>Add Node</button>
+			<button onclick={addGroup}>Add Group</button>
 			<button onclick={importFlow}>Import JSON</button>
 			<button onclick={exportFlow}>Export JSON</button>
 			<button onclick={clearFlow} class="danger">Clear All</button>
@@ -192,7 +224,8 @@
 		<p class="hint">
 			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
 			Connect: Drag from output to input | Delete: Select & press Delete/Backspace |
-			Waypoints: Ctrl+click edge to add, Ctrl+click waypoint to delete
+			Waypoints: Ctrl+click edge to add, Ctrl+click waypoint to delete |
+			Groups: Drag nodes into/out of groups
 		</p>
 	</div>
 	

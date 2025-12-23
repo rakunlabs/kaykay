@@ -40,7 +40,7 @@ export interface FlowNode<T = Record<string, unknown>> {
 	id: string;
 	// Node type - maps to a custom component
 	type: string;
-	// Position in canvas coordinates
+	// Position in canvas coordinates (relative to parent if has parent_id)
 	position: Position;
 	// Custom data for the node
 	data: T;
@@ -50,6 +50,10 @@ export interface FlowNode<T = Record<string, unknown>> {
 	height?: number;
 	// Optional: whether the node is selected
 	selected?: boolean;
+	// Optional: parent group node ID (for grouping)
+	parent_id?: string;
+	// Optional: z-index for layering (groups typically have lower z-index)
+	z_index?: number;
 }
 
 // Runtime node state with computed values
@@ -63,6 +67,9 @@ export interface NodeState<T = Record<string, unknown>> extends FlowNode<T> {
 
 // Edge type for rendering
 export type EdgeType = 'bezier' | 'straight' | 'step';
+
+// Edge stroke style
+export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 
 // Flow edge definition
 export interface FlowEdge {
@@ -84,6 +91,12 @@ export interface FlowEdge {
 	selected?: boolean;
 	// Optional: waypoints for custom edge routing
 	waypoints?: Position[];
+	// Optional: stroke style (solid, dashed, dotted)
+	style?: EdgeStyle;
+	// Optional: whether the edge is animated (dashed lines move)
+	animated?: boolean;
+	// Optional: custom stroke color
+	color?: string;
 }
 
 // Complete flow definition (JSON export format)

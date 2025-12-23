@@ -105,10 +105,13 @@
 		const node = flow.getNode(node_id);
 		if (!node) return { x: 0, y: 0 };
 
-		// Use cached offset + current node position
+		// Get absolute node position (accounting for parent groups)
+		const nodeAbsolutePos = flow.getAbsolutePosition(node_id);
+
+		// Use cached offset + absolute node position
 		return {
-			x: node.position.x + handle_offset.x,
-			y: node.position.y + handle_offset.y,
+			x: nodeAbsolutePos.x + handle_offset.x,
+			y: nodeAbsolutePos.y + handle_offset.y,
 		};
 	}
 
@@ -122,6 +125,15 @@
 		// Track node position to trigger recalculation
 		void node.position.x;
 		void node.position.y;
+		
+		// Also track parent position if node has a parent
+		if (node.parent_id) {
+			const parent = flow.getNode(node.parent_id);
+			if (parent) {
+				void parent.position.x;
+				void parent.position.y;
+			}
+		}
 
 		const absolute_position = getAbsolutePosition();
 		flow.updateHandlePosition(node_id, id, absolute_position);

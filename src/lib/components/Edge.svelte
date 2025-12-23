@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { FlowEdge, Position } from '../types/index.js';
+	import type { FlowEdge, Position, EdgeStyle } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 	import { getEdgePathWithWaypoints, getEdgeCenter } from '../utils/edge-path.js';
 
@@ -14,6 +14,46 @@
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
+
+	// Context menu state
+	let showContextMenu = $state(false);
+	let contextMenuPos = $state({ x: 0, y: 0 });
+
+	// Preset colors for the color picker
+	const colorOptions = [
+		'#888888', // Default gray
+		'#ef4444', // Red
+		'#f97316', // Orange
+		'#eab308', // Yellow
+		'#22c55e', // Green
+		'#3b82f6', // Blue
+		'#8b5cf6', // Purple
+		'#ec4899', // Pink
+	];
+
+	// Style options
+	const styleOptions: { value: EdgeStyle; label: string }[] = [
+		{ value: 'solid', label: 'Solid' },
+		{ value: 'dashed', label: 'Dashed' },
+		{ value: 'dotted', label: 'Dotted' },
+	];
+
+	// Get stroke-dasharray based on style
+	function getStrokeDashArray(style?: EdgeStyle): string {
+		switch (style) {
+			case 'dashed':
+				return '8 4';
+			case 'dotted':
+				return '2 4';
+			default:
+				return 'none';
+		}
+	}
+
+	// Derived values for edge styling
+	const strokeColor = $derived(edge.color ?? '#888');
+	const strokeDashArray = $derived(getStrokeDashArray(edge.style));
+	const isAnimated = $derived(edge.animated ?? false);
 
 	// Get source and target handle info (for position type like 'left', 'right')
 	const source_handle = $derived(flow.getHandle(edge.source, edge.source_handle));
@@ -164,16 +204,228 @@
 		window.removeEventListener('mousemove', handleWaypointDrag);
 		window.removeEventListener('mouseup', handleWaypointMouseUp);
 	}
+
+	// Context menu handlers
+	function handleContextMenu(e: MouseEvent) {
+		if (flow.locked) return;
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Position context menu at mouse location
+		contextMenuPos = { x: e.clientX, y: e.clientY };
+		showContextMenu = true;
+
+		// Select the edge when right-clicking
+		onselect();
+
+		// Add listener to close menu when clicking outside
+		setTimeout(() => {
+			window.addEventListener('click', closeContextMenu);
+			window.addEventListener('contextmenu', closeContextMenu);
+		}, 0);
+	}
+
+	function closeContextMenu() {
+		showContextMenu = false;
+		window.removeEventListener('click', closeContextMenu);
+		window.removeEventListener('contextmenu', closeContextMenu);
+	}
+
+	function setEdgeStyle(style: EdgeStyle) {
+		flow.updateEdge(edge.id, { style });
+		closeContextMenu();
+	}
+
+	function setEdgeColor(color: string) {
+		flow.updateEdge(edge.id, { color });
+		closeContextMenu();
+	}
+
+	function toggleAnimated() {
+		flow.updateEdge(edge.id, { animated: !edge.animated });
+		closeContextMenu();
+	}
+
+	// Portal-based context menu rendering
+	let menuContainer: HTMLDivElement | null = null;
+
+	$effect(() => {
+		if (showContextMenu) {
+			// Create menu container
+			menuContainer = document.createElement('div');
+			menuContainer.className = 'kaykay-edge-context-menu';
+			menuContainer.style.cssText = `
+				position: fixed;
+				visibility: hidden;
+				background: #1e1e1e;
+				border: 1px solid #333;
+				border-radius: 8px;
+				padding: 8px;
+				min-width: 150px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+				z-index: 10000;
+				font-family: system-ui, -apple-system, sans-serif;
+				font-size: 12px;
+			`;
+
+			// Style section
+			const styleSection = document.createElement('div');
+			styleSection.style.marginBottom = '8px';
+			
+			const styleLabel = document.createElement('div');
+			styleLabel.textContent = 'Style';
+			styleLabel.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 0 4px;';
+			styleSection.appendChild(styleLabel);
+
+			const styleOptions = document.createElement('div');
+			styleOptions.style.cssText = 'display: flex; gap: 4px;';
+			
+			(['solid', 'dashed', 'dotted'] as EdgeStyle[]).forEach((style) => {
+				const btn = document.createElement('button');
+				btn.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+				const isActive = edge.style === style || (!edge.style && style === 'solid');
+				btn.style.cssText = `
+					flex: 1;
+					padding: 6px 8px;
+					background: ${isActive ? '#3b82f6' : '#2a2a2a'};
+					border: 1px solid ${isActive ? '#3b82f6' : '#333'};
+					border-radius: 4px;
+					color: ${isActive ? '#fff' : '#ccc'};
+					cursor: pointer;
+				`;
+				btn.onclick = (e) => {
+					e.stopPropagation();
+					setEdgeStyle(style);
+				};
+				styleOptions.appendChild(btn);
+			});
+			styleSection.appendChild(styleOptions);
+			menuContainer.appendChild(styleSection);
+
+			// Animated section
+			const animSection = document.createElement('div');
+			animSection.style.marginBottom = '8px';
+			
+			const animLabel = document.createElement('div');
+			animLabel.textContent = 'Animated';
+			animLabel.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 0 4px;';
+			animSection.appendChild(animLabel);
+
+			const animOptions = document.createElement('div');
+			animOptions.style.cssText = 'display: flex; gap: 4px;';
+			
+			const animBtn = document.createElement('button');
+			animBtn.textContent = edge.animated ? 'On' : 'Off';
+			animBtn.style.cssText = `
+				flex: 1;
+				padding: 6px 8px;
+				background: ${edge.animated ? '#3b82f6' : '#2a2a2a'};
+				border: 1px solid ${edge.animated ? '#3b82f6' : '#333'};
+				border-radius: 4px;
+				color: ${edge.animated ? '#fff' : '#ccc'};
+				cursor: pointer;
+			`;
+			animBtn.onclick = (e) => {
+				e.stopPropagation();
+				toggleAnimated();
+			};
+			animOptions.appendChild(animBtn);
+			animSection.appendChild(animOptions);
+			menuContainer.appendChild(animSection);
+
+			// Color section
+			const colorSection = document.createElement('div');
+			
+			const colorLabel = document.createElement('div');
+			colorLabel.textContent = 'Color';
+			colorLabel.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 0 4px;';
+			colorSection.appendChild(colorLabel);
+
+			const colorOptionsDiv = document.createElement('div');
+			colorOptionsDiv.style.cssText = 'display: flex; gap: 4px; flex-wrap: wrap;';
+			
+			colorOptions.forEach((color) => {
+				const swatch = document.createElement('button');
+				const isActive = edge.color === color || (!edge.color && color === '#888888');
+				swatch.style.cssText = `
+					width: 24px;
+					height: 24px;
+					border-radius: 4px;
+					border: 2px solid ${isActive ? '#fff' : 'transparent'};
+					background-color: ${color};
+					cursor: pointer;
+					box-shadow: ${isActive ? '0 0 0 2px rgba(255, 255, 255, 0.3)' : 'none'};
+				`;
+				swatch.onclick = (e) => {
+					e.stopPropagation();
+					setEdgeColor(color);
+				};
+				colorOptionsDiv.appendChild(swatch);
+			});
+			colorSection.appendChild(colorOptionsDiv);
+			menuContainer.appendChild(colorSection);
+
+			// Prevent clicks inside menu from closing it
+			menuContainer.onclick = (e) => e.stopPropagation();
+
+			document.body.appendChild(menuContainer);
+
+			// Auto-position to keep menu within viewport
+			requestAnimationFrame(() => {
+				if (!menuContainer) return;
+				
+				const menuRect = menuContainer.getBoundingClientRect();
+				const viewportWidth = window.innerWidth;
+				const viewportHeight = window.innerHeight;
+				const padding = 8; // Small padding from viewport edge
+
+				let x = contextMenuPos.x;
+				let y = contextMenuPos.y;
+
+				// Flip horizontally if menu would overflow right edge
+				if (x + menuRect.width > viewportWidth - padding) {
+					x = Math.max(padding, x - menuRect.width);
+				}
+
+				// Flip vertically if menu would overflow bottom edge
+				if (y + menuRect.height > viewportHeight - padding) {
+					y = Math.max(padding, y - menuRect.height);
+				}
+
+				// Apply final position and make visible
+				menuContainer.style.left = `${x}px`;
+				menuContainer.style.top = `${y}px`;
+				menuContainer.style.visibility = 'visible';
+			});
+		}
+
+		return () => {
+			if (menuContainer) {
+				menuContainer.remove();
+				menuContainer = null;
+			}
+		};
+	});
 </script>
 
 {#if combinedPath}
-	<g class="kaykay-edge" class:selected>
+	<g class="kaykay-edge" class:selected class:animated={isAnimated}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- Invisible wider path for easier selection -->
-		<path class="kaykay-edge-hitbox" d={combinedPath} onclick={handleClick} />
+		<path
+			class="kaykay-edge-hitbox"
+			d={combinedPath}
+			onclick={handleClick}
+			oncontextmenu={handleContextMenu}
+		/>
 		<!-- Visible edge path -->
-		<path class="kaykay-edge-path" d={combinedPath} />
+		<path
+			class="kaykay-edge-path"
+			d={combinedPath}
+			style:stroke={strokeColor}
+			style:stroke-dasharray={strokeDashArray}
+		/>
 
 		{#if edge.label}
 			<text class="kaykay-edge-label" x={label_position.x} y={label_position.y}>
@@ -215,12 +467,23 @@
 	}
 
 	.kaykay-edge:hover .kaykay-edge-path {
-		stroke: #aaa;
+		filter: brightness(1.2);
 	}
 
 	.kaykay-edge.selected .kaykay-edge-path {
-		stroke: #4a9eff;
 		stroke-width: 3px;
+		filter: brightness(1.3);
+	}
+
+	/* Animation for dashed/dotted edges */
+	.kaykay-edge.animated .kaykay-edge-path {
+		animation: dash-flow 0.5s linear infinite;
+	}
+
+	@keyframes dash-flow {
+		to {
+			stroke-dashoffset: -12;
+		}
 	}
 
 	.kaykay-edge-label {
