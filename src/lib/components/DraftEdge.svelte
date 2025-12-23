@@ -50,6 +50,13 @@
 		stroke-dasharray: 8 4;
 		pointer-events: none;
 		opacity: 0.8;
+		animation: draft-dash-flow 0.3s linear infinite;
+	}
+
+	@keyframes draft-dash-flow {
+		to {
+			stroke-dashoffset: -12;
+		}
 	}
 
 	.kaykay-draft-edge-path:hover {

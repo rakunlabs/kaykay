@@ -177,6 +177,26 @@
 		flow.finishConnection(node_id, id);
 	}
 
+	function handleClick(e: MouseEvent) {
+		if (flow.locked) return;
+		e.stopPropagation();
+
+		// If there's an active draft connection and this is an input handle, finish it
+		if (flow.draft_connection && type === 'input') {
+			if (flow.draft_connection.source_node_id !== node_id) {
+				flow.finishConnection(node_id, id);
+			}
+			return;
+		}
+
+		// If no draft connection and this is an output handle, start one
+		if (!flow.draft_connection && type === 'output') {
+			calculateHandleOffset();
+			const absolute_position = getAbsolutePosition();
+			flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
+		}
+	}
+
 	function handleMouseEnter() {
 		// Visual feedback handled by CSS classes
 	}
@@ -199,6 +219,7 @@
 	style={computedStyle}
 	onmousedown={handleMouseDown}
 	onmouseup={handleMouseUp}
+	onclick={handleClick}
 	onmouseenter={handleMouseEnter}
 	role="button"
 	tabindex="-1"

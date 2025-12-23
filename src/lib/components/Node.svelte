@@ -34,6 +34,11 @@
 
 	function handleMouseDown(e: MouseEvent) {
 		if (e.button !== 0) return;
+		
+		// Don't start dragging if clicking on a handle (let handle process it)
+		const target = e.target as HTMLElement;
+		if (target.closest('[data-handle-id]')) return;
+		
 		e.stopPropagation();
 
 		flow.selectNode(node.id, e.shiftKey);

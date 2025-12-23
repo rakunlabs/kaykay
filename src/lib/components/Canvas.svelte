@@ -53,6 +53,7 @@
 	let containerEl: HTMLDivElement;
 	let isPanning = $state(false);
 	let lastMousePos = $state<Position | null>(null);
+	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
 	// Handle mouse wheel for zooming
 	function handleWheel(e: WheelEvent) {
@@ -73,12 +74,22 @@
 		const isOnHandle = target.closest('[data-handle-id]');
 		const isOnEdge = target.closest('.kaykay-edge');
 		
+		// Cancel draft connection if clicking on canvas background (click-to-connect mode)
+		if (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge && flow.draft_connection) {
+			flow.cancelConnection();
+			connectionDragDistance = 0;
+			return;
+		}
+		
 		// Only pan on middle mouse or when clicking on canvas background (not nodes/handles/edges)
 		if (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge)) {
 			isPanning = true;
 			lastMousePos = { x: e.clientX, y: e.clientY };
 			flow.clearSelection();
 		}
+		
+		// Reset drag distance when starting a new potential connection
+		connectionDragDistance = 0;
 	}
 
 	// Handle mouse move
@@ -90,8 +101,11 @@
 			lastMousePos = { x: e.clientX, y: e.clientY };
 		}
 
-		// Update draft connection position
+		// Update draft connection position and track drag distance
 		if (flow.draft_connection && containerEl) {
+			// Track that user is dragging (for drag vs click detection)
+			connectionDragDistance += Math.abs(e.movementX) + Math.abs(e.movementY);
+			
 			// Account for canvas container offset from the page
 			const rect = containerEl.getBoundingClientRect();
 			const relativeX = e.clientX - rect.left;
@@ -124,12 +138,17 @@
 				
 				if (handleId && nodeId && handleType === 'input') {
 					flow.finishConnection(nodeId, handleId);
+					connectionDragDistance = 0;
 					return;
 				}
 			}
 			
-			// Cancel if not over a valid handle
-			flow.cancelConnection();
+			// Only cancel if user was dragging (not click-to-connect mode)
+			// If drag distance is small, user is in click mode - don't cancel
+			if (connectionDragDistance > 10) {
+				flow.cancelConnection();
+			}
+			connectionDragDistance = 0;
 		}
 	}
 
