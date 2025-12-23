@@ -100,6 +100,7 @@
 
 	function handleResizeMouseUp() {
 		isResizing = false;
+		flow.updateGroupMembership(id);
 		window.removeEventListener('mousemove', handleResizeMouseMove);
 		window.removeEventListener('mouseup', handleResizeMouseUp);
 	}

@@ -134,6 +134,58 @@ export class FlowState {
 		}
 	}
 
+	// Update which nodes belong to a group based on current bounds
+	updateGroupMembership(group_id: string): void {
+		const group = this.getNode(group_id);
+		if (!group || group.type !== 'group') return;
+
+		const group_abs_pos = this.getAbsolutePosition(group_id);
+		const group_bounds = {
+			left: group_abs_pos.x,
+			top: group_abs_pos.y,
+			right: group_abs_pos.x + group.computed_width,
+			bottom: group_abs_pos.y + group.computed_height,
+		};
+
+		// Check all non-group nodes
+		for (const node of this.nodes) {
+			if (node.id === group_id || node.type === 'group') continue;
+
+			const node_abs_pos = this.getAbsolutePosition(node.id);
+			const node_center = {
+				x: node_abs_pos.x + node.computed_width / 2,
+				y: node_abs_pos.y + node.computed_height / 2,
+			};
+
+			const is_inside_group =
+				node_center.x >= group_bounds.left &&
+				node_center.x <= group_bounds.right &&
+				node_center.y >= group_bounds.top &&
+				node_center.y <= group_bounds.bottom;
+
+			if (is_inside_group && node.parent_id !== group_id) {
+				// Node is inside group but not a child - add it
+				// Only add if not already in another group, or if this group is smaller (more specific)
+				if (!node.parent_id) {
+					this.setNodeParent(node.id, group_id);
+				} else {
+					// Check if this group is smaller (more nested)
+					const current_parent = this.getNode(node.parent_id);
+					if (current_parent) {
+						const current_area = current_parent.computed_width * current_parent.computed_height;
+						const this_area = group.computed_width * group.computed_height;
+						if (this_area < current_area) {
+							this.setNodeParent(node.id, group_id);
+						}
+					}
+				}
+			} else if (!is_inside_group && node.parent_id === group_id) {
+				// Node is outside group but is a child - remove it
+				this.setNodeParent(node.id, undefined);
+			}
+		}
+	}
+
 	getNode(node_id: string): NodeState | undefined {
 		return this.nodes.find((n) => n.id === node_id);
 	}

@@ -1,16 +1,16 @@
-name: Publish to npm
+name: Deploy Demo
 
 on:
   push:
     tags:
-      - '*'
-      - '!demo*'
+      - 'demo*'
 
 jobs:
-  publish:
+  deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pages: write
       id-token: write
     steps:
       - name: Checkout
@@ -26,15 +26,21 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build package
-        run: pnpm build
+      - name: Build demo
+        run: pnpm vite build
 
-      - name: Publish to npm with provenance
-        run: pnpm publish --access public --no-git-checks --provenance
-        env:
-          NPM_CONFIG_PROVENANCE: true
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
