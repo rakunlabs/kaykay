@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Handle from '../lib/components/Handle.svelte';
+	import HandleGroup from '../lib/components/HandleGroup.svelte';
 	import type { NodeProps } from '../lib/types/index.js';
 
 	let { id, data, selected }: NodeProps<{ operation: string; description?: string }> = $props();
@@ -10,8 +11,14 @@
 	{#if data.description}
 		<div class="node-body">{data.description}</div>
 	{/if}
-	<Handle id="input-1" type="input" port="data" position="left" label="In 1" />
-	<Handle id="input-2" type="input" port="data" position="left" label="In 2" style="top: 70%" />
+	
+	<!-- Multiple input handles grouped on the left -->
+	<HandleGroup position="left">
+		<Handle id="input-1" type="input" port="data" label="In 1" />
+		<Handle id="input-2" type="input" port="data" label="In 2" />
+	</HandleGroup>
+	
+	<!-- Single output handle on the right -->
 	<Handle id="output" type="output" port="data" position="right" />
 </div>
 

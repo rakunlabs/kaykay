@@ -1,183 +1,153 @@
 import type { Component } from 'svelte';
 
-/**
- * Position in 2D space
- */
+// Position in 2D space
 export interface Position {
 	x: number;
 	y: number;
 }
 
-/**
- * Handle position on a node
- */
+// Handle position on a node
 export type HandlePosition = 'left' | 'right' | 'top' | 'bottom';
 
-/**
- * Handle type (input or output)
- */
+// Handle type (input or output)
 export type HandleType = 'input' | 'output';
 
-/**
- * Handle definition for a node
- */
+// Handle definition for a node
 export interface HandleDefinition {
-	/** Unique handle ID within the node */
+	// Unique handle ID within the node
 	id: string;
-	/** Whether this is an input or output handle */
+	// Whether this is an input or output handle
 	type: HandleType;
-	/** Custom port type name (e.g., "raw", "processed", "signal") */
+	// Custom port type name (e.g., "raw", "processed", "signal")
 	port: string;
-	/** Position on the node */
+	// Position on the node
 	position: HandlePosition;
-	/** Optional: additional port types this input accepts */
+	// Optional: additional port types this input accepts
 	accept?: string[];
-	/** Optional: label to display */
+	// Optional: label to display
 	label?: string;
 }
 
-/**
- * Runtime handle state with computed position
- */
+// Runtime handle state with computed position
 export interface HandleState extends HandleDefinition {
-	/** Absolute position in canvas coordinates */
+	// Absolute position in canvas coordinates
 	absolute_position: Position;
 }
 
-/**
- * Flow node definition
- */
+// Flow node definition
 export interface FlowNode<T = Record<string, unknown>> {
-	/** Unique node ID */
+	// Unique node ID
 	id: string;
-	/** Node type - maps to a custom component */
+	// Node type - maps to a custom component
 	type: string;
-	/** Position in canvas coordinates */
+	// Position in canvas coordinates
 	position: Position;
-	/** Custom data for the node */
+	// Custom data for the node
 	data: T;
-	/** Optional: fixed width */
+	// Optional: fixed width
 	width?: number;
-	/** Optional: fixed height */
+	// Optional: fixed height
 	height?: number;
-	/** Optional: whether the node is selected */
+	// Optional: whether the node is selected
 	selected?: boolean;
 }
 
-/**
- * Runtime node state with computed values
- */
+// Runtime node state with computed values
 export interface NodeState<T = Record<string, unknown>> extends FlowNode<T> {
-	/** Registered handles with their absolute positions */
+	// Registered handles with their absolute positions
 	handles: Map<string, HandleState>;
-	/** Computed dimensions from DOM */
+	// Computed dimensions from DOM
 	computed_width: number;
 	computed_height: number;
 }
 
-/**
- * Edge type for rendering
- */
+// Edge type for rendering
 export type EdgeType = 'bezier' | 'straight' | 'step';
 
-/**
- * Flow edge definition
- */
+// Flow edge definition
 export interface FlowEdge {
-	/** Unique edge ID */
+	// Unique edge ID
 	id: string;
-	/** Source node ID */
+	// Source node ID
 	source: string;
-	/** Source handle ID */
+	// Source handle ID
 	source_handle: string;
-	/** Target node ID */
+	// Target node ID
 	target: string;
-	/** Target handle ID */
+	// Target handle ID
 	target_handle: string;
-	/** Edge rendering type */
+	// Edge rendering type
 	type?: EdgeType;
-	/** Optional label */
+	// Optional label
 	label?: string;
-	/** Optional: whether the edge is selected */
+	// Optional: whether the edge is selected
 	selected?: boolean;
+	// Optional: waypoints for custom edge routing
+	waypoints?: Position[];
 }
 
-/**
- * Complete flow definition (JSON export format)
- */
+// Complete flow definition (JSON export format)
 export interface Flow {
 	nodes: FlowNode[];
 	edges: FlowEdge[];
 }
 
-/**
- * Viewport state for pan/zoom
- */
+// Viewport state for pan/zoom
 export interface Viewport {
 	x: number;
 	y: number;
 	zoom: number;
 }
 
-/**
- * Props passed to custom node components
- */
+// Props passed to custom node components
 export interface NodeProps<T = Record<string, unknown>> {
-	/** Node ID */
+	// Node ID
 	id: string;
-	/** Custom data */
+	// Custom data
 	data: T;
-	/** Whether the node is selected */
+	// Whether the node is selected
 	selected: boolean;
 }
 
-/**
- * Connection being dragged
- */
+// Connection being dragged
 export interface DraftConnection {
-	/** Source node ID */
+	// Source node ID
 	source_node_id: string;
-	/** Source handle ID */
+	// Source handle ID
 	source_handle_id: string;
-	/** Source handle port type */
+	// Source handle port type
 	source_port: string;
-	/** Source handle position type (left, right, top, bottom) */
+	// Source handle position type (left, right, top, bottom)
 	source_handle_position: HandlePosition;
-	/** Source handle absolute position */
+	// Source handle absolute position
 	source_position: Position;
-	/** Current mouse position */
+	// Current mouse position
 	target_position: Position;
 }
 
-/**
- * Node type registry mapping type names to Svelte components
- */
+// Node type registry mapping type names to Svelte components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type NodeTypes = Record<string, Component<NodeProps<any>>>;
 
-/**
- * Configuration for flow behavior
- */
+// Configuration for flow behavior
 export interface FlowConfig {
-	/** Minimum zoom level */
+	// Minimum zoom level
 	min_zoom?: number;
-	/** Maximum zoom level */
+	// Maximum zoom level
 	max_zoom?: number;
-	/** Snap nodes to grid */
+	// Snap nodes to grid
 	snap_to_grid?: boolean;
-	/** Grid size for snapping */
+	// Grid size for snapping
 	grid_size?: number;
-	/** Allow deleting nodes/edges */
+	// Allow deleting nodes/edges
 	allow_delete?: boolean;
-	/** Default edge type */
+	// Default edge type
 	default_edge_type?: EdgeType;
-	/** Lock the flow to prevent modifications (nodes can't be moved, edges can't be created/deleted) */
+	// Lock the flow to prevent modifications (nodes can't be moved, edges can't be created/deleted)
 	locked?: boolean;
 }
 
-/**
- * Event callbacks
- */
+// Event callbacks
 export interface FlowCallbacks {
 	on_node_click?: (node_id: string) => void;
 	on_node_drag_start?: (node_id: string) => void;

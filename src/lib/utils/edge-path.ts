@@ -1,8 +1,6 @@
 import type { Position, HandlePosition, EdgeType } from '../types/index.js';
 
-/**
- * Calculate bezier curve control points based on handle positions
- */
+// Calculate bezier curve control points based on handle positions
 export function getBezierPath(
 	sourcePos: Position,
 	sourceHandlePosition: HandlePosition,
@@ -16,16 +14,12 @@ export function getBezierPath(
 	return `M ${sourcePos.x} ${sourcePos.y} C ${sourceControl.x} ${sourceControl.y}, ${targetControl.x} ${targetControl.y}, ${targetPos.x} ${targetPos.y}`;
 }
 
-/**
- * Calculate straight line path
- */
+// Calculate straight line path
 export function getStraightPath(sourcePos: Position, targetPos: Position): string {
 	return `M ${sourcePos.x} ${sourcePos.y} L ${targetPos.x} ${targetPos.y}`;
 }
 
-/**
- * Calculate step (orthogonal) path
- */
+// Calculate step (orthogonal) path
 export function getStepPath(
 	sourcePos: Position,
 	sourceHandlePosition: HandlePosition,
@@ -51,9 +45,7 @@ export function getStepPath(
 	}
 }
 
-/**
- * Get edge path based on type
- */
+// Get edge path based on type (without waypoints)
 export function getEdgePath(
 	sourcePos: Position,
 	sourceHandlePosition: HandlePosition,
@@ -72,9 +64,89 @@ export function getEdgePath(
 	}
 }
 
-/**
- * Calculate control point for bezier curve
- */
+// Get edge path with waypoints support
+export function getEdgePathWithWaypoints(
+	sourcePos: Position,
+	sourceHandlePosition: HandlePosition,
+	targetPos: Position,
+	targetHandlePosition: HandlePosition,
+	type: EdgeType = 'bezier',
+	waypoints: Position[] = []
+): string[] {
+	if (waypoints.length === 0) {
+		return [getEdgePath(sourcePos, sourceHandlePosition, targetPos, targetHandlePosition, type)];
+	}
+
+	const paths: string[] = [];
+	const allPoints = [sourcePos, ...waypoints, targetPos];
+
+	for (let i = 0; i < allPoints.length - 1; i++) {
+		const from = allPoints[i];
+		const to = allPoints[i + 1];
+
+		// For first segment: use source handle position, infer "to" direction from where we're going
+		// For last segment: infer "from" direction from where we came, use target handle position
+		// For middle segments: infer both directions based on flow
+		let fromPosition: HandlePosition;
+		let toPosition: HandlePosition;
+
+		if (i === 0) {
+			// First segment: source handle -> first waypoint
+			fromPosition = sourceHandlePosition;
+			toPosition = inferIncomingDirection(from, to);
+		} else if (i === allPoints.length - 2) {
+			// Last segment: last waypoint -> target handle
+			fromPosition = inferOutgoingDirection(from, to);
+			toPosition = targetHandlePosition;
+		} else {
+			// Middle segment: waypoint -> waypoint
+			fromPosition = inferOutgoingDirection(from, to);
+			toPosition = inferIncomingDirection(from, to);
+		}
+
+		switch (type) {
+			case 'straight':
+				paths.push(getStraightPath(from, to));
+				break;
+			case 'step':
+				paths.push(getStepPath(from, fromPosition, to, toPosition));
+				break;
+			case 'bezier':
+			default:
+				paths.push(getBezierPath(from, fromPosition, to, toPosition));
+				break;
+		}
+	}
+
+	return paths;
+}
+
+// Infer which direction we're leaving FROM a point (going towards "to")
+function inferOutgoingDirection(from: Position, to: Position): HandlePosition {
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx > 0 ? 'right' : 'left';
+	} else {
+		return dy > 0 ? 'bottom' : 'top';
+	}
+}
+
+// Infer which direction we're arriving INTO a point (coming from "from")
+function inferIncomingDirection(from: Position, to: Position): HandlePosition {
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+
+	// Incoming is opposite of the direction we're traveling
+	if (Math.abs(dx) > Math.abs(dy)) {
+		return dx > 0 ? 'left' : 'right';
+	} else {
+		return dy > 0 ? 'top' : 'bottom';
+	}
+}
+
+// Calculate control point for bezier curve
 function getControlPoint(
 	point: Position,
 	handlePosition: HandlePosition,
@@ -106,9 +178,7 @@ function isVertical(position: HandlePosition): boolean {
 	return position === 'top' || position === 'bottom';
 }
 
-/**
- * Calculate the center point of an edge for label positioning
- */
+// Calculate the center point of an edge for label positioning
 export function getEdgeCenter(
 	sourcePos: Position,
 	targetPos: Position
@@ -116,5 +186,39 @@ export function getEdgeCenter(
 	return {
 		x: (sourcePos.x + targetPos.x) / 2,
 		y: (sourcePos.y + targetPos.y) / 2,
+	};
+}
+
+// Get point on path at a given ratio (0-1) for adding waypoints
+export function getPointOnLine(from: Position, to: Position, ratio: number): Position {
+	return {
+		x: from.x + (to.x - from.x) * ratio,
+		y: from.y + (to.y - from.y) * ratio,
+	};
+}
+
+// Find the closest point on a line segment to a given point
+export function getClosestPointOnSegment(
+	point: Position,
+	segmentStart: Position,
+	segmentEnd: Position
+): { position: Position; ratio: number } {
+	const dx = segmentEnd.x - segmentStart.x;
+	const dy = segmentEnd.y - segmentStart.y;
+	const lengthSquared = dx * dx + dy * dy;
+
+	if (lengthSquared === 0) {
+		return { position: segmentStart, ratio: 0 };
+	}
+
+	let ratio = ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) / lengthSquared;
+	ratio = Math.max(0, Math.min(1, ratio));
+
+	return {
+		position: {
+			x: segmentStart.x + ratio * dx,
+			y: segmentStart.y + ratio * dy,
+		},
+		ratio,
 	};
 }

@@ -18,7 +18,7 @@
 		id,
 		type,
 		port,
-		position = type === 'input' ? 'left' : 'right',
+		position: positionProp,
 		accept,
 		label,
 		class: className = '',
@@ -32,15 +32,35 @@
 	let handleEl: HTMLDivElement;
 	let node_id = $state<string>('');
 	let handle_offset = $state<Position>({ x: 0, y: 0 }); // Offset within node
+	let isInGroup = $state(false);
+	let isInitialized = $state(false);
+	let effectivePosition = $state<HandlePosition>(positionProp ?? (type === 'input' ? 'left' : 'right'));
 
 	onMount(() => {
+		// Check if inside a HandleGroup and get its position
+		const groupEl = handleEl.closest('[data-handle-group]');
+		isInGroup = !!groupEl;
+		
+		// If in a group, use the group's position unless explicitly set
+		if (groupEl && !positionProp) {
+			const groupPosition = groupEl.getAttribute('data-handle-group') as HandlePosition;
+			if (groupPosition) {
+				effectivePosition = groupPosition;
+			}
+		}
+
 		// Find parent node
 		const nodeEl = handleEl.closest('[data-node-id]');
 		if (nodeEl) {
 			node_id = nodeEl.getAttribute('data-node-id') || '';
-			// Calculate handle's offset within the node (do this once on mount)
-			calculateHandleOffset();
-			registerHandle();
+			
+			// Use requestAnimationFrame to ensure layout is complete before calculating offset
+			// This is especially important for handles inside HandleGroup (flexbox needs a frame)
+			requestAnimationFrame(() => {
+				calculateHandleOffset();
+				registerHandle();
+				isInitialized = true;
+			});
 		}
 	});
 
@@ -72,11 +92,13 @@
 			id,
 			type,
 			port,
-			position,
+			position: effectivePosition,
 			accept,
 			label,
 			absolute_position,
 		});
+		// Also update position immediately after registration
+		flow.updateHandlePosition(node_id, id, absolute_position);
 	}
 
 	function getAbsolutePosition(): Position {
@@ -90,23 +112,19 @@
 		};
 	}
 
-	// Update position when node moves or handle mounts
+	// Update position when node moves - only after initialization
 	$effect(() => {
-		if (node_id && handleEl) {
-			const node = flow.getNode(node_id);
-			// Track node position and viewport to trigger recalculation
-			if (node) {
-				// Access these to create reactive dependency
-				void node.position.x;
-				void node.position.y;
-				void flow.viewport.x;
-				void flow.viewport.y;
-				void flow.viewport.zoom;
-			}
+		if (!isInitialized || !node_id || !handleEl) return;
+		
+		const node = flow.getNode(node_id);
+		if (!node) return;
+		
+		// Track node position to trigger recalculation
+		void node.position.x;
+		void node.position.y;
 
-			const absolute_position = getAbsolutePosition();
-			flow.updateHandlePosition(node_id, id, absolute_position);
-		}
+		const absolute_position = getAbsolutePosition();
+		flow.updateHandlePosition(node_id, id, absolute_position);
 	});
 
 	// Check if this handle can accept current draft connection
@@ -132,8 +150,10 @@
 		if (flow.locked) return;
 		e.stopPropagation();
 
+		// Recalculate offset before starting connection (in case layout changed)
+		calculateHandleOffset();
 		const absolute_position = getAbsolutePosition();
-		flow.startConnection(node_id, id, port, position, absolute_position);
+		flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
 	}
 
 	function handleMouseUp(e: MouseEvent) {
@@ -149,26 +169,22 @@
 		// Visual feedback handled by CSS classes
 	}
 
-	// Position styles based on handle position
-	const positionStyles: Record<HandlePosition, string> = {
-		left: 'left: -6px; top: 50%; transform: translateY(-50%);',
-		right: 'right: -6px; top: 50%; transform: translateY(-50%);',
-		top: 'top: -6px; left: 50%; transform: translateX(-50%);',
-		bottom: 'bottom: -6px; left: 50%; transform: translateX(-50%);',
-	};
+	// Computed style - only apply custom styles, positioning handled by CSS classes
+	const computedStyle = $derived(style);
 </script>
 
 <div
-	class="kaykay-handle kaykay-handle-{type} kaykay-handle-{position} {className}"
+	class="kaykay-handle kaykay-handle-{type} kaykay-handle-{effectivePosition} {className}"
 	class:can-connect={can_accept_connection}
 	class:incompatible={is_incompatible}
 	class:locked={flow.locked}
+	class:in-group={isInGroup}
 	class:connecting={flow.draft_connection &&
 		type === 'output' &&
 		flow.draft_connection.source_handle_id === id &&
 		flow.draft_connection.source_node_id === node_id}
 	bind:this={handleEl}
-	style="{positionStyles[position]} {style}"
+	style={computedStyle}
 	onmousedown={handleMouseDown}
 	onmouseup={handleMouseUp}
 	onmouseenter={handleMouseEnter}
@@ -193,7 +209,38 @@
 		border: 2px solid #888;
 		cursor: crosshair;
 		z-index: 10;
-		transition: all 0.15s ease;
+		transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	/* Position styles for standalone handles */
+	.kaykay-handle-left:not(.in-group) {
+		left: -6px;
+		top: 50%;
+		margin-top: -6px;
+	}
+
+	.kaykay-handle-right:not(.in-group) {
+		right: -6px;
+		top: 50%;
+		margin-top: -6px;
+	}
+
+	.kaykay-handle-top:not(.in-group) {
+		top: -6px;
+		left: 50%;
+		margin-left: -6px;
+	}
+
+	.kaykay-handle-bottom:not(.in-group) {
+		bottom: -6px;
+		left: 50%;
+		margin-left: -6px;
+	}
+
+	/* When inside a HandleGroup, use relative positioning */
+	.kaykay-handle.in-group {
+		position: relative;
+		flex-shrink: 0;
 	}
 
 	.kaykay-handle-input {
@@ -208,16 +255,6 @@
 
 	.kaykay-handle:hover {
 		transform: scale(1.3);
-	}
-
-	.kaykay-handle-left:hover,
-	.kaykay-handle-right:hover {
-		transform: translateY(-50%) scale(1.3);
-	}
-
-	.kaykay-handle-top:hover,
-	.kaykay-handle-bottom:hover {
-		transform: translateX(-50%) scale(1.3);
 	}
 
 	.kaykay-handle.can-connect {

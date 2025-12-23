@@ -3,17 +3,17 @@
 	import type { FlowState } from '../stores/flow.svelte.js';
 
 	interface Props {
-		/** Width of the minimap in pixels */
+		// Width of the minimap in pixels
 		width?: number;
-		/** Height of the minimap in pixels */
+		// Height of the minimap in pixels
 		height?: number;
-		/** Background color of the minimap */
+		// Background color of the minimap
 		backgroundColor?: string;
-		/** Color of the nodes in the minimap */
+		// Color of the nodes in the minimap
 		nodeColor?: string;
-		/** Color of the viewport indicator */
+		// Color of the viewport indicator
 		viewportColor?: string;
-		/** Additional CSS class */
+		// Additional CSS class
 		class?: string;
 	}
 

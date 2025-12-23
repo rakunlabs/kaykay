@@ -52,6 +52,25 @@ Handles define connection points on nodes:
 - `accept` - (Optional) Array of port types an input can accept
 - `label` - (Optional) Display label for the handle
 
+## HandleGroup Component
+
+Use `HandleGroup` to group multiple handles on the same side of a node. Handles inside a group automatically inherit the group's position and are evenly spaced:
+
+```svelte
+<script lang="ts">
+  import { Handle, HandleGroup } from 'kaykay';
+</script>
+
+<div class="my-node">
+  <HandleGroup position="left">
+    <Handle id="in-1" type="input" port="data" label="Input 1" />
+    <Handle id="in-2" type="input" port="data" label="Input 2" />
+  </HandleGroup>
+  
+  <Handle id="out" type="output" port="data" position="right" />
+</div>
+```
+
 ## Port Type Validation
 
 Connections are validated based on port types:
@@ -124,6 +143,7 @@ The Canvas provides these built-in interactions:
 - **Delete**: Select items and press Delete or Backspace
 - **Connect**: Click and drag from an output handle to an input handle
 - **Move Nodes**: Click and drag nodes
+- **Edge Waypoints**: Ctrl+click on an edge to add a waypoint, drag waypoints to reposition, right-click to remove
 
 ## Styling Custom Nodes
 
@@ -152,6 +172,48 @@ if (node) {
 
 // Remove an edge
 edges = edges.filter(e => e.id !== 'edge-1');
+```
+
+## Edge Waypoints
+
+Edges support waypoints for routing around obstacles. Waypoints can be added interactively or programmatically:
+
+```typescript
+// Define edges with waypoints
+let edges: FlowEdge[] = $state([
+  {
+    id: 'edge-1',
+    source: 'node-1',
+    source_handle: 'out',
+    target: 'node-2',
+    target_handle: 'in',
+    waypoints: [
+      { x: 250, y: 150 },
+      { x: 250, y: 300 }
+    ]
+  }
+]);
+```
+
+Waypoints can also be managed programmatically via the flow state:
+
+```typescript
+const flow = canvasRef?.getFlow();
+
+// Add waypoint at the end
+flow.addEdgeWaypoint('edge-1', { x: 200, y: 150 });
+
+// Add waypoint at specific index
+flow.addEdgeWaypoint('edge-1', { x: 200, y: 150 }, 0);
+
+// Update waypoint position
+flow.updateEdgeWaypoint('edge-1', 0, { x: 220, y: 160 });
+
+// Remove a waypoint
+flow.removeEdgeWaypoint('edge-1', 0);
+
+// Clear all waypoints from an edge
+flow.clearEdgeWaypoints('edge-1');
 ```
 
 ## Testing Your Implementation

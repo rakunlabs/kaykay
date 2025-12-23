@@ -252,8 +252,8 @@
 		z-index: 0;
 	}
 
-	.kaykay-edges :global(path) {
-		pointer-events: stroke;
+	.kaykay-edges :global(.kaykay-edge) {
+		pointer-events: auto;
 	}
 
 	.kaykay-nodes {

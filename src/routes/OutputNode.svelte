@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Handle from '../lib/components/Handle.svelte';
+	import HandleGroup from '../lib/components/HandleGroup.svelte';
 	import type { NodeProps } from '../lib/types/index.js';
 
 	let { id, data, selected }: NodeProps<{ title: string }> = $props();
@@ -7,7 +8,13 @@
 
 <div class="output-node">
 	<div class="node-header">{data.title}</div>
-	<Handle id="in" type="input" port="data" position="left" />
+	<HandleGroup position="top">
+		<Handle id="in" type="input" port="data" />
+		<Handle id="in-2" type="input" port="data" />
+		<Handle id="in-3" type="input" port="data" />
+		<Handle id="in-4" type="input" port="data" />
+		<Handle id="in-5" type="input" port="data" />
+	</HandleGroup>
 </div>
 
 <style>

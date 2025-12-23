@@ -4,7 +4,7 @@
 	import TextNode from './TextNode.svelte';
 	import ProcessNode from './ProcessNode.svelte';
 	import OutputNode from './OutputNode.svelte';
-	import Minimap from '$lib/components/Minimap.svelte';
+	import Minimap from '../lib/components/Minimap.svelte';
 
 	// Reference to canvas component
 	let canvasRef: ReturnType<typeof Canvas> | undefined;
@@ -136,19 +136,63 @@
 			nodeIds.forEach(id => flow.removeNode(id));
 		}
 	}
+
+	// Hidden file input reference
+	let fileInput: HTMLInputElement;
+
+	// Import flow from JSON file
+	function importFlow() {
+		fileInput?.click();
+	}
+
+	function handleFileSelect(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			try {
+				const json = event.target?.result as string;
+				const data = JSON.parse(json);
+				
+				const flow = canvasRef?.getFlow();
+				if (!flow) return;
+
+				// Load the imported data
+				flow.fromJSON(data);
+			} catch (err) {
+				alert('Failed to import JSON: Invalid format');
+				console.error(err);
+			}
+		};
+		reader.readAsText(file);
+		
+		// Reset input so same file can be selected again
+		input.value = '';
+	}
 </script>
 
 <div class="demo-container">
+	<input
+		type="file"
+		accept=".json"
+		bind:this={fileInput}
+		onchange={handleFileSelect}
+		style="display: none"
+	/>
 	<div class="controls">
-		<h1>kaykay Flow Editor Demo</h1>
+		<h1>kaykay - Flow Editor Demo</h1>
 		<div class="button-group">
 			<button onclick={addNode}>Add Node</button>
+			<button onclick={importFlow}>Import JSON</button>
 			<button onclick={exportFlow}>Export JSON</button>
 			<button onclick={clearFlow} class="danger">Clear All</button>
 		</div>
 		<p class="hint">
 			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
-			Connect: Drag from output to input | Delete: Select & press Delete/Backspace
+			Connect: Drag from output to input | Delete: Select & press Delete/Backspace |
+			Waypoints: Ctrl+click edge to add, Ctrl+click waypoint to delete
 		</p>
 	</div>
 	

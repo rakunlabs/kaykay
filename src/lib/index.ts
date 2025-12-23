@@ -1,6 +1,7 @@
 // Components
 export { default as Canvas } from './components/Canvas.svelte';
 export { default as Handle } from './components/Handle.svelte';
+export { default as HandleGroup } from './components/HandleGroup.svelte';
 export { default as Edge } from './components/Edge.svelte';
 export { default as DraftEdge } from './components/DraftEdge.svelte';
 export { default as Minimap } from './components/Minimap.svelte';
@@ -29,4 +30,4 @@ export type {
 } from './types/index.js';
 
 // Utilities
-export { getBezierPath, getStraightPath, getStepPath, getEdgePath, getEdgeCenter } from './utils/edge-path.js';
+export { getBezierPath, getStraightPath, getStepPath, getEdgePath, getEdgePathWithWaypoints, getEdgeCenter } from './utils/edge-path.js';

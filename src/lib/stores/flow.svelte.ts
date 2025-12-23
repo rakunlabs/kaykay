@@ -14,9 +14,7 @@ import type {
 
 const FLOW_CONTEXT_KEY = Symbol('kaykay-flow');
 
-/**
- * Flow state class using Svelte 5 runes
- */
+// Flow state class using Svelte 5 runes
 export class FlowState {
 	// Core state
 	nodes = $state<NodeState[]>([]);
@@ -220,6 +218,52 @@ export class FlowState {
 		return this.edges.find((e) => e.id === edge_id);
 	}
 
+	// ============ Edge Waypoints ============
+
+	addEdgeWaypoint(edge_id: string, position: Position, index?: number): void {
+		const edge = this.edges.find((e) => e.id === edge_id);
+		if (!edge) return;
+
+		if (!edge.waypoints) {
+			edge.waypoints = [];
+		}
+
+		if (index !== undefined && index >= 0 && index <= edge.waypoints.length) {
+			edge.waypoints.splice(index, 0, position);
+		} else {
+			edge.waypoints.push(position);
+		}
+	}
+
+	updateEdgeWaypoint(edge_id: string, waypoint_index: number, position: Position): void {
+		const edge = this.edges.find((e) => e.id === edge_id);
+		if (!edge || !edge.waypoints) return;
+
+		if (waypoint_index >= 0 && waypoint_index < edge.waypoints.length) {
+			edge.waypoints[waypoint_index] = position;
+		}
+	}
+
+	removeEdgeWaypoint(edge_id: string, waypoint_index: number): void {
+		const edge = this.edges.find((e) => e.id === edge_id);
+		if (!edge || !edge.waypoints) return;
+
+		if (waypoint_index >= 0 && waypoint_index < edge.waypoints.length) {
+			edge.waypoints.splice(waypoint_index, 1);
+			// Clean up empty waypoints array
+			if (edge.waypoints.length === 0) {
+				edge.waypoints = undefined;
+			}
+		}
+	}
+
+	clearEdgeWaypoints(edge_id: string): void {
+		const edge = this.edges.find((e) => e.id === edge_id);
+		if (edge) {
+			edge.waypoints = undefined;
+		}
+	}
+
 	// ============ Connection Validation ============
 
 	canConnect(
@@ -420,6 +464,7 @@ export class FlowState {
 				target_handle: edge.target_handle,
 				type: edge.type,
 				label: edge.label,
+				waypoints: edge.waypoints ? edge.waypoints.map((wp) => ({ ...wp })) : undefined,
 			})),
 		};
 	}
@@ -436,9 +481,7 @@ export class FlowState {
 	}
 }
 
-/**
- * Create and provide flow context
- */
+// Create and provide flow context
 export function createFlow(
 	initial_nodes: FlowNode[] = [],
 	initial_edges: FlowEdge[] = [],
@@ -450,9 +493,7 @@ export function createFlow(
 	return flow;
 }
 
-/**
- * Get flow from context
- */
+// Get flow from context
 export function getFlow(): FlowState {
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
 	if (!flow) {
