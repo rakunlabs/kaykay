@@ -124,6 +124,16 @@ export class FlowState {
 		}
 	}
 
+	resizeNode(node_id: string, width: number, height: number): void {
+		const node = this.nodes.find((n) => n.id === node_id);
+		if (node) {
+			node.width = width;
+			node.height = height;
+			node.computed_width = width;
+			node.computed_height = height;
+		}
+	}
+
 	getNode(node_id: string): NodeState | undefined {
 		return this.nodes.find((n) => n.id === node_id);
 	}

@@ -226,7 +226,7 @@
 	data-handle-id={id}
 	data-handle-type={type}
 	data-handle-port={port}
-	title="{label ? `${label} - ` : ''}{type} - {port}"
+	title="{id} - {type} - {port}"
 >
 	{#if label}
 		<span class="kaykay-handle-label">{label}</span>
