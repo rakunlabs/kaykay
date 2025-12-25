@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { FlowEdge, Position, EdgeStyle } from '../types/index.js';
+	import type { FlowEdge, Position, EdgeStyle, EdgeType } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 	import { getEdgePathWithWaypoints, getEdgeCenter } from '../utils/edge-path.js';
 
@@ -36,6 +36,13 @@
 		{ value: 'solid', label: 'Solid' },
 		{ value: 'dashed', label: 'Dashed' },
 		{ value: 'dotted', label: 'Dotted' },
+	];
+
+	// Edge type options
+	const typeOptions: { value: EdgeType; label: string }[] = [
+		{ value: 'bezier', label: 'Bezier' },
+		{ value: 'step', label: 'Step' },
+		{ value: 'straight', label: 'Straight' },
 	];
 
 	// Get stroke-dasharray based on style
@@ -241,6 +248,11 @@
 		closeContextMenu();
 	}
 
+	function setEdgeType(type: EdgeType) {
+		flow.updateEdge(edge.id, { type });
+		closeContextMenu();
+	}
+
 	function toggleAnimated() {
 		flow.updateEdge(edge.id, { animated: !edge.animated });
 		closeContextMenu();
@@ -301,6 +313,40 @@
 			});
 			styleSection.appendChild(styleOptions);
 			menuContainer.appendChild(styleSection);
+
+			// Type section (bezier, step, straight)
+			const typeSection = document.createElement('div');
+			typeSection.style.marginBottom = '8px';
+			
+			const typeLabel = document.createElement('div');
+			typeLabel.textContent = 'Type';
+			typeLabel.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 0 4px;';
+			typeSection.appendChild(typeLabel);
+
+			const typeOptionsDiv = document.createElement('div');
+			typeOptionsDiv.style.cssText = 'display: flex; gap: 4px;';
+			
+			(['bezier', 'step', 'straight'] as EdgeType[]).forEach((type) => {
+				const btn = document.createElement('button');
+				btn.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+				const isActive = edge.type === type || (!edge.type && type === 'bezier');
+				btn.style.cssText = `
+					flex: 1;
+					padding: 6px 8px;
+					background: ${isActive ? '#3b82f6' : '#2a2a2a'};
+					border: 1px solid ${isActive ? '#3b82f6' : '#333'};
+					border-radius: 4px;
+					color: ${isActive ? '#fff' : '#ccc'};
+					cursor: pointer;
+				`;
+				btn.onclick = (e) => {
+					e.stopPropagation();
+					setEdgeType(type);
+				};
+				typeOptionsDiv.appendChild(btn);
+			});
+			typeSection.appendChild(typeOptionsDiv);
+			menuContainer.appendChild(typeSection);
 
 			// Animated section
 			const animSection = document.createElement('div');

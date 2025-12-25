@@ -50,7 +50,7 @@ export class FlowState {
 			min_zoom: 0.1,
 			max_zoom: 4,
 			snap_to_grid: false,
-			grid_size: 20,
+			grid_size: 10,
 			allow_delete: true,
 			default_edge_type: 'bezier',
 			locked: false,

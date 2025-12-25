@@ -88,7 +88,7 @@
 	const config = {
 		min_zoom: 0.5,
 		max_zoom: 2,
-		snap_to_grid: false,
+		snap_to_grid: true,
 		allow_delete: true,
 		default_edge_type: 'bezier' as const
 	};

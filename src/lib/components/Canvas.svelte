@@ -176,6 +176,12 @@
 	const transformStyle = $derived(
 		`translate(${flow.viewport.x}px, ${flow.viewport.y}px) scale(${flow.viewport.zoom})`
 	);
+
+	// Compute background style that moves and scales with viewport
+	const bgSize = $derived(20 * flow.viewport.zoom);
+	const bgStyle = $derived(
+		`background-size: ${bgSize}px ${bgSize}px; background-position: ${flow.viewport.x}px ${flow.viewport.y}px;`
+	);
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
@@ -185,6 +191,7 @@
 <div
 	class="kaykay-canvas {className}"
 	bind:this={containerEl}
+	style={bgStyle}
 	onwheel={handleWheel}
 	onmousedown={handleMouseDown}
 	onmousemove={handleMouseMove}
@@ -234,14 +241,9 @@
 		height: 100%;
 		position: relative;
 		overflow: hidden;
-		background-color: #1a1a2e;
-		background-image:
-			linear-gradient(45deg, #252540 25%, transparent 25%),
-			linear-gradient(-45deg, #252540 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, #252540 75%),
-			linear-gradient(-45deg, transparent 75%, #252540 75%);
+		background-color: #2a2a3a;
+		background-image: radial-gradient(circle, #666 1px, transparent 1px);
 		background-size: 20px 20px;
-		background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 		cursor: grab;
 		outline: none;
 	}
@@ -255,6 +257,7 @@
 		top: 0;
 		left: 0;
 		transform-origin: 0 0;
+		z-index: 2;
 	}
 
 	.kaykay-edges {
@@ -268,7 +271,7 @@
 		overflow: visible;
 		pointer-events: none;
 		transform-origin: 0 0;
-		z-index: 0;
+		z-index: 1;
 	}
 
 	.kaykay-edges :global(.kaykay-edge) {
