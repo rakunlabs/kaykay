@@ -19,7 +19,7 @@
 	</HandleGroup>
 	
 	<!-- Single output handle on the right -->
-	<Handle id="output" type="output" port="data" position="right" />
+	<Handle id="output" type="output" port="data" position="right" style="background-color: yellow; --letter-color: red;" letter="R" />
 </div>
 
 <style>
@@ -28,7 +28,7 @@
 		border: 2px solid #444;
 		border-radius: 8px;
 		padding: 1rem;
-		min-width: 150px;
+		min-width: 160px;
 		min-height: 80px;
 		position: relative;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);

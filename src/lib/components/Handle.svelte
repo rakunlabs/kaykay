@@ -10,6 +10,7 @@
 		position?: HandlePosition;
 		accept?: string[];
 		label?: string;
+		letter?: string;
 		class?: string;
 		style?: string;
 	}
@@ -21,6 +22,7 @@
 		position: positionProp,
 		accept,
 		label,
+		letter,
 		class: className = '',
 		style = '',
 	}: Props = $props();
@@ -226,6 +228,7 @@
 	data-handle-id={id}
 	data-handle-type={type}
 	data-handle-port={port}
+	data-letter={letter}
 	title="{id} - {type} - {port}"
 >
 	{#if label}
@@ -309,6 +312,21 @@
 
 	.kaykay-handle.locked {
 		cursor: default;
+	}
+
+	/* Display letter using CSS pseudo-element */
+	.kaykay-handle[data-letter]::before {
+		content: attr(data-letter);
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 10px;
+		font-weight: bold;
+		color: var(--letter-color, #333);
+		line-height: 1;
+		pointer-events: none;
+		user-select: none;
 	}
 
 	.kaykay-handle-label {

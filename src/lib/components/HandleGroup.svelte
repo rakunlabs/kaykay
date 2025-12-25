@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HandlePosition } from '../types/index.js';
+	import { getContext } from 'svelte';
+	import type { FlowState } from '../stores/flow.svelte.js';
 
 	interface Props {
 		// Position of the handle group on the node
@@ -19,11 +21,17 @@
 		style = '',
 		children,
 	}: Props = $props();
+
+	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
+	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
+
+	// Use grid size for gap (default 20px)
+	const gridSize = $derived(flow?.config?.grid_size ?? 20);
 </script>
 
 <div
 	class="kaykay-handle-group kaykay-handle-group-{position} {className}"
-	style={style}
+	style="{style} --grid-gap: {gridSize}px;"
 	data-handle-group={position}
 >
 	{@render children()}
@@ -35,7 +43,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
+		gap: var(--grid-gap, 20px);
 	}
 
 	/* Left side - vertical stack on left edge */

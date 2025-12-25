@@ -15,7 +15,7 @@
 		{
 			id: 'group-1',
 			type: 'group',
-			position: { x: 50, y: 50 },
+			position: { x: 40, y: 40 },
 			width: 280,
 			height: 280,
 			data: { label: 'Inputs', color: '#4a9eff' }
@@ -23,27 +23,27 @@
 		{
 			id: 'node-1',
 			type: 'text',
-			position: { x: 50, y: 50 },
+			position: { x: 60, y: 60 },
 			data: { label: 'Input A', color: '#4a9eff' },
 			parent_id: 'group-1'
 		},
 		{
 			id: 'node-2',
 			type: 'text',
-			position: { x: 50, y: 150 },
+			position: { x: 60, y: 160 },
 			data: { label: 'Input B', color: '#ff6b6b' },
 			parent_id: 'group-1'
 		},
 		{
 			id: 'node-3',
 			type: 'process',
-			position: { x: 400, y: 150 },
+			position: { x: 400, y: 140 },
 			data: { operation: 'Merge', description: 'Combines two inputs' }
 		},
 		{
 			id: 'node-4',
 			type: 'output',
-			position: { x: 650, y: 175 },
+			position: { x: 640, y: 160 },
 			data: { title: 'Result' }
 		}
 	]);

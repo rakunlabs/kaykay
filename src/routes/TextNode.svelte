@@ -25,7 +25,7 @@
 		border: 2px solid #444;
 		border-radius: 8px;
 		padding: 1rem;
-		min-width: 150px;
+		min-width: 140px;
 		position: relative;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 		transition: box-shadow 0.2s;
