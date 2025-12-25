@@ -1,3 +1,5 @@
+<img align="left" height="74" src="kaykay.png">
+
 # kaykay
 
 A Svelte 5 flow/node editor library with typed port connections.
