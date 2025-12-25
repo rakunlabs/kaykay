@@ -90,6 +90,27 @@
 	// Combined path for rendering
 	const combinedPath = $derived(paths.join(' '));
 
+	// Calculate approximate path length for consistent animation speed
+	const pathLength = $derived.by(() => {
+		if (!source_position || !target_position) return 100;
+		
+		const allPoints = [source_position, ...waypoints, target_position];
+		let length = 0;
+		
+		for (let i = 0; i < allPoints.length - 1; i++) {
+			const dx = allPoints[i + 1].x - allPoints[i].x;
+			const dy = allPoints[i + 1].y - allPoints[i].y;
+			length += Math.sqrt(dx * dx + dy * dy);
+		}
+		
+		return Math.max(length, 50); // minimum length to avoid too fast animation
+	});
+
+	// Animation duration based on path length (pixels per second)
+	const ARROW_SPEED = 150; // pixels per second
+	const MIN_DURATION = 1.5; // minimum animation duration in seconds
+	const animationDuration = $derived(Math.max(pathLength / ARROW_SPEED, MIN_DURATION));
+
 	// Calculate label position
 	const label_position = $derived.by(() => {
 		if (!source_position || !target_position) return { x: 0, y: 0 };
@@ -456,6 +477,20 @@
 
 {#if combinedPath}
 	<g class="kaykay-edge" class:selected class:animated={isAnimated}>
+		<!-- Arrow marker definition -->
+		<defs>
+			<marker
+				id="arrow-{edge.id}"
+				markerWidth="12"
+				markerHeight="12"
+				refX="6"
+				refY="6"
+				orient="auto"
+			>
+				<path d="M 0 0 L 12 6 L 0 12 L 3 6 Z" fill={strokeColor} />
+			</marker>
+		</defs>
+
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- Invisible wider path for easier selection -->
@@ -472,6 +507,30 @@
 			style:stroke={strokeColor}
 			style:stroke-dasharray={strokeDashArray}
 		/>
+
+		<!-- Animated arrows on selected edge -->
+		{#if selected}
+			<!-- Multiple arrows traveling along the path -->
+			{#each [0, 0.33, 0.66] as delay}
+				<path
+					class="kaykay-edge-arrow-head"
+					d="M -8 -6 L 0 0 L -8 6"
+					fill="none"
+					stroke={strokeColor}
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<animateMotion
+						dur="{animationDuration}s"
+						repeatCount="indefinite"
+						path={combinedPath}
+						rotate="auto"
+						begin="{delay * animationDuration}s"
+					/>
+				</path>
+			{/each}
+		{/if}
 
 		{#if edge.label}
 			<text class="kaykay-edge-label" x={label_position.x} y={label_position.y}>
@@ -570,5 +629,9 @@
 
 	.kaykay-edge.selected .kaykay-waypoint {
 		stroke: #4a9eff;
+	}
+
+	.kaykay-edge-arrow-head {
+		pointer-events: none;
 	}
 </style>
