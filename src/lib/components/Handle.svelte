@@ -237,15 +237,76 @@
 </div>
 
 <style>
+	/* Light mode (default) */
 	.kaykay-handle {
+		--kaykay-handle-bg: #555;
+		--kaykay-handle-border: #888;
+		--kaykay-handle-input-bg: #fff;
+		--kaykay-handle-input-border: #999;
+		--kaykay-handle-output-bg: #fff;
+		--kaykay-handle-output-border: #999;
+		--kaykay-handle-can-connect-bg: #4ade80;
+		--kaykay-handle-can-connect-border: #22c55e;
+		--kaykay-handle-can-connect-shadow: #4ade80;
+		--kaykay-handle-incompatible-bg: #666;
+		--kaykay-handle-incompatible-border: #444;
+		--kaykay-handle-connecting-bg: #fbbf24;
+		--kaykay-handle-connecting-border: #f59e0b;
+		--kaykay-handle-letter-color: #333;
+		--kaykay-handle-label-color: #888;
+		--kaykay-handle-label-bg: #fff;
+
 		position: absolute;
 		width: 12px;
 		height: 12px;
-		background: #555;
-		border: 2px solid #888;
+		background: var(--kaykay-handle-bg);
+		border: 2px solid var(--kaykay-handle-border);
 		cursor: crosshair;
 		z-index: 10;
 		transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	/* Dark mode - via media query (system preference) */
+	@media (prefers-color-scheme: dark) {
+		.kaykay-handle:not(.light) {
+			--kaykay-handle-bg: #555;
+			--kaykay-handle-border: #888;
+			--kaykay-handle-input-bg: #fff;
+			--kaykay-handle-input-border: #999;
+			--kaykay-handle-output-bg: #fff;
+			--kaykay-handle-output-border: #999;
+			--kaykay-handle-can-connect-bg: #22c55e;
+			--kaykay-handle-can-connect-border: #4ade80;
+			--kaykay-handle-can-connect-shadow: #22c55e;
+			--kaykay-handle-incompatible-bg: #444;
+			--kaykay-handle-incompatible-border: #333;
+			--kaykay-handle-connecting-bg: #f59e0b;
+			--kaykay-handle-connecting-border: #fbbf24;
+			--kaykay-handle-letter-color: #333;
+			--kaykay-handle-label-color: #aaa;
+			--kaykay-handle-label-bg: #222;
+		}
+	}
+
+	/* Dark mode - via class (manual toggle) */
+	:global(.dark) .kaykay-handle,
+	.kaykay-handle.dark {
+		--kaykay-handle-bg: #555;
+		--kaykay-handle-border: #888;
+		--kaykay-handle-input-bg: #fff;
+		--kaykay-handle-input-border: #999;
+		--kaykay-handle-output-bg: #fff;
+		--kaykay-handle-output-border: #999;
+		--kaykay-handle-can-connect-bg: #22c55e;
+		--kaykay-handle-can-connect-border: #4ade80;
+		--kaykay-handle-can-connect-shadow: #22c55e;
+		--kaykay-handle-incompatible-bg: #444;
+		--kaykay-handle-incompatible-border: #333;
+		--kaykay-handle-connecting-bg: #f59e0b;
+		--kaykay-handle-connecting-border: #fbbf24;
+		--kaykay-handle-letter-color: #333;
+		--kaykay-handle-label-color: #aaa;
+		--kaykay-handle-label-bg: #222;
 	}
 
 	/* Position styles for standalone handles */
@@ -280,13 +341,13 @@
 	}
 
 	.kaykay-handle-input {
-		background: #fff;
-		border-color: #999;
+		background: var(--kaykay-handle-input-bg);
+		border-color: var(--kaykay-handle-input-border);
 	}
 
 	.kaykay-handle-output {
-		background: #fff;
-		border-color: #999;
+		background: var(--kaykay-handle-output-bg);
+		border-color: var(--kaykay-handle-output-border);
 	}
 
 	.kaykay-handle:hover {
@@ -294,20 +355,20 @@
 	}
 
 	.kaykay-handle.can-connect {
-		background: #4ade80;
-		border-color: #22c55e;
-		box-shadow: 0 0 8px #4ade80;
+		background: var(--kaykay-handle-can-connect-bg);
+		border-color: var(--kaykay-handle-can-connect-border);
+		box-shadow: 0 0 8px var(--kaykay-handle-can-connect-shadow);
 	}
 
 	.kaykay-handle.incompatible {
-		background: #666;
-		border-color: #444;
+		background: var(--kaykay-handle-incompatible-bg);
+		border-color: var(--kaykay-handle-incompatible-border);
 		opacity: 0.5;
 	}
 
 	.kaykay-handle.connecting {
-		background: #fbbf24;
-		border-color: #f59e0b;
+		background: var(--kaykay-handle-connecting-bg);
+		border-color: var(--kaykay-handle-connecting-border);
 	}
 
 	.kaykay-handle.locked {
@@ -323,7 +384,7 @@
 		transform: translate(-50%, -50%);
 		font-size: 10px;
 		font-weight: bold;
-		color: var(--letter-color, #333);
+		color: var(--kaykay-handle-letter-color);
 		line-height: 1;
 		pointer-events: none;
 		user-select: none;
@@ -333,8 +394,8 @@
 		position: absolute;
 		white-space: nowrap;
 		font-size: 10px;
-		color: #888;
-		background-color: #fff;
+		color: var(--kaykay-handle-label-color);
+		background-color: var(--kaykay-handle-label-bg);
 		padding: 0 4px;
 		pointer-events: none;
 		z-index: 2;

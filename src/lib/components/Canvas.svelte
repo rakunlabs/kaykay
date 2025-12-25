@@ -178,9 +178,11 @@
 	);
 
 	// Compute background style that moves and scales with viewport
+	// Dot opacity decreases when zooming out (zoom < 1)
 	const bgSize = $derived(20 * flow.viewport.zoom);
+	const dotOpacity = $derived(Math.min(1, Math.max(0.1, flow.viewport.zoom)));
 	const bgStyle = $derived(
-		`background-size: ${bgSize}px ${bgSize}px; background-position: ${flow.viewport.x}px ${flow.viewport.y}px;`
+		`background-size: ${bgSize}px ${bgSize}px; background-position: ${flow.viewport.x}px ${flow.viewport.y}px; --kaykay-canvas-dot-opacity: ${dotOpacity};`
 	);
 </script>
 
@@ -236,16 +238,36 @@
 </div>
 
 <style>
+	/* Light mode (default) */
 	.kaykay-canvas {
+		--kaykay-canvas-bg: #f5f5f5;
+		--kaykay-canvas-dot-rgb: 204, 204, 204;
+		--kaykay-canvas-dot-opacity: 1;
+
 		width: 100%;
 		height: 100%;
 		position: relative;
 		overflow: hidden;
-		background-color: #2a2a3a;
-		background-image: radial-gradient(circle, #666 1px, transparent 1px);
+		background-color: var(--kaykay-canvas-bg);
+		background-image: radial-gradient(circle, rgba(var(--kaykay-canvas-dot-rgb), var(--kaykay-canvas-dot-opacity)) 1px, transparent 1px);
 		background-size: 20px 20px;
 		cursor: grab;
 		outline: none;
+	}
+
+	/* Dark mode - via media query (system preference) */
+	@media (prefers-color-scheme: dark) {
+		.kaykay-canvas:not(.light) {
+			--kaykay-canvas-bg: #2a2a3a;
+			--kaykay-canvas-dot-rgb: 102, 102, 102;
+		}
+	}
+
+	/* Dark mode - via class (manual toggle) */
+	:global(.dark) .kaykay-canvas,
+	.kaykay-canvas.dark {
+		--kaykay-canvas-bg: #2a2a3a;
+		--kaykay-canvas-dot-rgb: 102, 102, 102;
 	}
 
 	.kaykay-canvas:active {

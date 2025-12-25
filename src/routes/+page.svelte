@@ -10,6 +10,13 @@
 	// Reference to canvas component
 	let canvasRef: ReturnType<typeof Canvas> | undefined;
 
+	// Theme state
+	let theme: 'light' | 'dark' = $state('dark');
+
+	function toggleTheme() {
+		theme = theme === 'dark' ? 'light' : 'dark';
+	}
+
 	// Define initial nodes
 	let nodes: FlowNode[] = $state([
 		{
@@ -204,7 +211,7 @@
 	}
 </script>
 
-<div class="demo-container">
+<div class="demo-container" class:light={theme === 'light'} class:dark={theme === 'dark'}>
 	<input
 		type="file"
 		accept=".json"
@@ -220,6 +227,9 @@
 			<button onclick={importFlow}>Import JSON</button>
 			<button onclick={exportFlow}>Export JSON</button>
 			<button onclick={clearFlow} class="danger">Clear All</button>
+			<button onclick={toggleTheme} class="theme-toggle">
+				{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+			</button>
 		</div>
 		<p class="hint">
 			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
@@ -242,9 +252,13 @@
 		height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: #0f0f1e;
 		color: white;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	}
+
+	.demo-container.light {
+		background: #f5f5f5;
+		color: #333;
 	}
 
 	.controls {
@@ -255,6 +269,11 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 1rem;
+	}
+
+	.demo-container.light .controls {
+		background: #fff;
+		border-bottom: 1px solid #ddd;
 	}
 
 	.button-group {
@@ -290,10 +309,30 @@
 		background: #b91c1c;
 	}
 
+	.controls button.theme-toggle {
+		background: #6b7280;
+	}
+
+	.controls button.theme-toggle:hover {
+		background: #4b5563;
+	}
+
+	.demo-container.light .controls button.theme-toggle {
+		background: #374151;
+	}
+
+	.demo-container.light .controls button.theme-toggle:hover {
+		background: #1f2937;
+	}
+
 	.hint {
 		margin: 0;
 		font-size: 0.85rem;
 		color: #888;
+	}
+
+	.demo-container.light .hint {
+		color: #666;
 	}
 
 	.canvas-wrapper {
