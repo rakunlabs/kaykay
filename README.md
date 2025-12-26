@@ -21,7 +21,7 @@ pnpm add kaykay
 
 ## Quick Start
 
-Check out the [interactive playground](/playground) for a complete working example!
+Check out the [help page](https://rakunlabs.github.io/kaykay/) for a complete working example!
 
 ```svelte
 <script lang="ts">
