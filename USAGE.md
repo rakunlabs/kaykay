@@ -226,6 +226,135 @@ flow.clearEdgeWaypoints('edge-1');
    - Zoom and pan the canvas
    - Select and delete nodes
 
+## CSS Color Variables
+
+kaykay exposes CSS custom properties (variables) for theming. Set these on a parent element or `:root` to customize colors:
+
+### Canvas
+
+```css
+:root {
+  --kaykay-canvas-bg: #f5f5f5;             /* Canvas background color */
+  --kaykay-canvas-dot-rgb: 204, 204, 204;  /* Grid dot color (RGB values) */
+}
+```
+
+Note: The canvas also supports automatic dark mode via `prefers-color-scheme: dark` media query, or manually by adding a `dark` class to the canvas or a parent element.
+
+### Nodes
+
+```css
+:root {
+  --kaykay-node-selected-outline: #4a9eff; /* Selection outline color */
+}
+```
+
+### Handles
+
+```css
+:root {
+  /* Base handle colors */
+  --kaykay-handle-bg: #555;                /* Default handle background */
+  --kaykay-handle-border: #888;            /* Default handle border */
+  
+  /* Input handle colors */
+  --kaykay-handle-input-bg: #fff;          /* Input handle background */
+  --kaykay-handle-input-border: #999;      /* Input handle border */
+  
+  /* Output handle colors */
+  --kaykay-handle-output-bg: #fff;         /* Output handle background */
+  --kaykay-handle-output-border: #999;     /* Output handle border */
+  
+  /* Connection states */
+  --kaykay-handle-can-connect-bg: #4ade80;     /* Compatible handle background */
+  --kaykay-handle-can-connect-border: #22c55e; /* Compatible handle border */
+  --kaykay-handle-can-connect-shadow: #4ade80; /* Compatible handle glow */
+  --kaykay-handle-incompatible-bg: #666;       /* Incompatible handle background */
+  --kaykay-handle-incompatible-border: #444;   /* Incompatible handle border */
+  --kaykay-handle-connecting-bg: #fbbf24;      /* Active connection handle background */
+  --kaykay-handle-connecting-border: #f59e0b;  /* Active connection handle border */
+  
+  /* Labels */
+  --kaykay-handle-letter-color: #333;      /* Handle letter color */
+  --kaykay-handle-label-color: #888;       /* Handle label text color */
+  --kaykay-handle-label-bg: #fff;          /* Handle label background */
+}
+```
+
+### Minimap
+
+```css
+:root {
+  --kaykay-minimap-bg: rgba(0, 0, 0, 0.8);           /* Background color */
+  --kaykay-minimap-node: #4a9eff;                    /* Node color */
+  --kaykay-minimap-viewport: rgba(74, 158, 255, 0.3); /* Viewport indicator */
+}
+```
+
+### Edges
+
+```css
+:root {
+  --kaykay-edge-stroke: #888;              /* Edge line color */
+  --kaykay-edge-label: #888;               /* Edge label text color */
+}
+```
+
+### Waypoints
+
+```css
+:root {
+  --kaykay-waypoint-fill: #fff;            /* Waypoint fill color */
+  --kaykay-waypoint-stroke: #888;          /* Waypoint border color */
+  --kaykay-waypoint-hover-fill: #4a9eff;   /* Waypoint fill on hover */
+  --kaykay-waypoint-hover-stroke: #2563eb; /* Waypoint border on hover */
+  --kaykay-waypoint-dragging-fill: #fbbf24; /* Waypoint fill while dragging */
+  --kaykay-waypoint-dragging-stroke: #f59e0b; /* Waypoint border while dragging */
+  --kaykay-waypoint-selected-stroke: #4a9eff; /* Waypoint border when edge is selected */
+}
+```
+
+### Draft Edge (connection in progress)
+
+```css
+:root {
+  --kaykay-draft-edge-stroke: #ff6b6b;     /* Draft edge color while connecting */
+}
+```
+
+### Example: Custom Theme
+
+```css
+:root {
+  /* Canvas */
+  --kaykay-canvas-bg: #1a1a2e;
+  --kaykay-canvas-dot-rgb: 80, 80, 120;
+  
+  /* Handles */
+  --kaykay-handle-input-bg: #e0e0e0;
+  --kaykay-handle-output-bg: #e0e0e0;
+  --kaykay-handle-can-connect-bg: #10b981;
+  --kaykay-handle-can-connect-border: #059669;
+  --kaykay-handle-label-color: #a0a0a0;
+  --kaykay-handle-label-bg: #2a2a3a;
+  
+  /* Minimap */
+  --kaykay-minimap-bg: rgba(30, 30, 50, 0.9);
+  --kaykay-minimap-node: #60a5fa;
+  --kaykay-minimap-viewport: rgba(96, 165, 250, 0.2);
+  
+  /* Edges */
+  --kaykay-edge-stroke: #666;
+  --kaykay-edge-label: #999;
+  --kaykay-waypoint-fill: #2a2a3a;
+  --kaykay-waypoint-stroke: #666;
+  --kaykay-draft-edge-stroke: #f87171;
+  
+  /* Nodes */
+  --kaykay-node-selected-outline: #60a5fa;
+}
+```
+
 ## Next Steps
 
 - Customize node appearance with your own styling

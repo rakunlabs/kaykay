@@ -193,7 +193,7 @@
 
 	.kaykay-node.selected {
 		z-index: 10 !important;
-		outline: 2px solid #4a9eff;
+		outline: 2px solid var(--kaykay-node-selected-outline, #4a9eff);
 	}
 
 	.kaykay-node.dragging {

@@ -565,7 +565,7 @@
 
 	.kaykay-edge-path {
 		fill: none;
-		stroke: #888;
+		stroke: var(--kaykay-edge-stroke, #888);
 		stroke-width: 2px;
 		pointer-events: none;
 		transition: stroke 0.15s ease;
@@ -592,7 +592,7 @@
 	}
 
 	.kaykay-edge-label {
-		fill: #888;
+		fill: var(--kaykay-edge-label, #888);
 		font-size: 12px;
 		text-anchor: middle;
 		dominant-baseline: middle;
@@ -601,8 +601,8 @@
 	}
 
 	.kaykay-waypoint {
-		fill: #fff;
-		stroke: #888;
+		fill: var(--kaykay-waypoint-fill, #fff);
+		stroke: var(--kaykay-waypoint-stroke, #888);
 		stroke-width: 2px;
 		cursor: grab;
 		pointer-events: auto;
@@ -616,19 +616,19 @@
 	}
 
 	.kaykay-waypoint:hover {
-		fill: #4a9eff;
-		stroke: #2563eb;
+		fill: var(--kaykay-waypoint-hover-fill, #4a9eff);
+		stroke: var(--kaykay-waypoint-hover-stroke, #2563eb);
 	}
 
 	.kaykay-waypoint.dragging {
-		fill: #fbbf24;
-		stroke: #f59e0b;
+		fill: var(--kaykay-waypoint-dragging-fill, #fbbf24);
+		stroke: var(--kaykay-waypoint-dragging-stroke, #f59e0b);
 		cursor: grabbing;
 		opacity: 1;
 	}
 
 	.kaykay-edge.selected .kaykay-waypoint {
-		stroke: #4a9eff;
+		stroke: var(--kaykay-waypoint-selected-stroke, #4a9eff);
 	}
 
 	.kaykay-edge-arrow-head {

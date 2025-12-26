@@ -45,7 +45,7 @@
 <style>
 	.kaykay-draft-edge-path {
 		fill: none;
-		stroke: #ff6b6b;
+		stroke: var(--kaykay-draft-edge-stroke, #ff6b6b);
 		stroke-width: 3px;
 		stroke-dasharray: 8 4;
 		pointer-events: none;

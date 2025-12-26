@@ -20,11 +20,16 @@
 	const {
 		width = 200,
 		height = 150,
-		backgroundColor = 'rgba(0, 0, 0, 0.8)',
-		nodeColor = '#4a9eff',
-		viewportColor = 'rgba(74, 158, 255, 0.3)',
+		backgroundColor,
+		nodeColor,
+		viewportColor,
 		class: className = '',
 	}: Props = $props();
+
+	// Use CSS variables with fallbacks
+	const bgColor = $derived(backgroundColor ?? 'var(--kaykay-minimap-bg, rgba(0, 0, 0, 0.8))');
+	const nodeFillColor = $derived(nodeColor ?? 'var(--kaykay-minimap-node, #4a9eff)');
+	const viewportFillColor = $derived(viewportColor ?? 'var(--kaykay-minimap-viewport, rgba(74, 158, 255, 0.3))');
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
@@ -175,7 +180,7 @@
 	class="kaykay-minimap {className}"
 	style:width="{width}px"
 	style:height="{height}px"
-	style:background-color={backgroundColor}
+	style:background-color={bgColor}
 	bind:this={minimapEl}
 	onmousedown={handleMouseDown}
 >
@@ -190,7 +195,7 @@
 				y={pos.y}
 				width={nodeWidth}
 				height={nodeHeight}
-				fill={nodeColor}
+				fill={nodeFillColor}
 				rx="2"
 				ry="2"
 			/>
@@ -208,7 +213,7 @@
 					y1={from.y}
 					x2={to.x}
 					y2={to.y}
-					stroke={nodeColor}
+					stroke={nodeFillColor}
 					stroke-width="1"
 					opacity="0.5"
 				/>
@@ -221,8 +226,8 @@
 			y={viewportRect.y}
 			width={viewportRect.width}
 			height={viewportRect.height}
-			fill={viewportColor}
-			stroke={nodeColor}
+			fill={viewportFillColor}
+			stroke={nodeFillColor}
 			stroke-width="1"
 		/>
 	</svg>
