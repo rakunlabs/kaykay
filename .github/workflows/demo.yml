@@ -32,6 +32,8 @@ jobs:
 
       - name: Build demo
         run: pnpm vite build
+        env:
+          BASE_PATH: /kaykay
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

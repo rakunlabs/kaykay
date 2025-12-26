@@ -1,5 +1,7 @@
 <script lang="ts">
 	// About/Landing page - Hacker Theme
+	import { base } from '$app/paths';
+	
 	let activeTab: "npm" | "pnpm" | "yarn" = $state("npm");
 
 	const installCommands = {
@@ -12,14 +14,14 @@
 <div class="about-page">
 	<header class="hero">
 		<span class="hero-logo-wrapper">
-			<img src="/kaykay.svg" alt="kaykay logo" class="hero-logo" />
+			<img src="{base}/kaykay.svg" alt="kaykay logo" class="hero-logo" />
 			<h1>kaykay</h1>
 		</span>
 
 		<p class="tagline">A modern, lightweight flow editor for Svelte 5</p>
 		<div class="hero-actions">
-			<a href="/playground" class="btn btn-primary">[ENTER] Playground</a>
-			<a href="/examples/getting-started" class="btn btn-secondary"
+			<a href="{base}/playground" class="btn btn-primary">[ENTER] Playground</a>
+			<a href="{base}/examples/getting-started" class="btn btn-secondary"
 				>[DOCS] Get Started</a
 			>
 		</div>
@@ -160,12 +162,12 @@
 	<section class="links-section">
 		<h2><span class="section-prefix">#</span> Resources</h2>
 		<div class="links-grid">
-			<a href="/examples/getting-started" class="link-card">
+			<a href="{base}/examples/getting-started" class="link-card">
 				<span class="link-prefix">[01]</span>
 				<h3>getting_started</h3>
 				<p>// Learn the basics</p>
 			</a>
-			<a href="/examples/api" class="link-card">
+			<a href="{base}/examples/api" class="link-card">
 				<span class="link-prefix">[02]</span>
 				<h3>api_reference</h3>
 				<p>// Complete documentation</p>

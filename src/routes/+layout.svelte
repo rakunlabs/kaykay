@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { base } from '$app/paths';
 
 	interface Props {
 		children: Snippet;
@@ -35,8 +36,8 @@
 <div class="app-container" class:kaykay-light={theme === 'light'} class:kaykay-dark={theme === 'dark'}>
 	<!-- Sidebar -->
 	<aside class="sidebar" class:collapsed={!sidebarOpen}>
-		<a href="/" class="sidebar-header">
-			<img src="/kaykay.svg" alt="kaykay logo" class="logo" />
+		<a href="{base}/" class="sidebar-header">
+			<img src="{base}/kaykay.svg" alt="kaykay logo" class="logo" />
 			{#if sidebarOpen}
 				<div class="brand">
 					<h1>kaykay</h1>
@@ -47,7 +48,7 @@
 
 		<nav class="sidebar-nav">
 			{#each navItems as item}
-				<a href={item.href} class="nav-item">
+				<a href="{base}{item.href}" class="nav-item">
 					<span class="nav-icon">{item.icon}</span>
 					{#if sidebarOpen}
 						<span class="nav-label">{item.label}</span>
