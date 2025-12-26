@@ -12,7 +12,7 @@
 <div class="about-page">
 	<header class="hero">
 		<span class="hero-logo-wrapper">
-			<img src="/kaykay.png" alt="kaykay logo" class="hero-logo" />
+			<img src="/kaykay.svg" alt="kaykay logo" class="hero-logo" />
 			<h1>kaykay</h1>
 		</span>
 
@@ -215,6 +215,10 @@
 		width: 120px;
 		height: 120px;
 		margin-bottom: 16px;
+	}
+
+	:global(.kaykay-dark) .hero-logo {
+		filter: invert(1);
 	}
 
 	.hero-logo-wrapper {

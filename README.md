@@ -1,4 +1,4 @@
-<img align="left" height="74" src="static/kaykay.png">
+<img align="left" height="72" src="static/kaykay.png">
 
 # kaykay
 
