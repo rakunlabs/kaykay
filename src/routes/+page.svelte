@@ -4,7 +4,7 @@
 	import TextNode from './TextNode.svelte';
 	import ProcessNode from './ProcessNode.svelte';
 	import OutputNode from './OutputNode.svelte';
-	import GroupNode from './GroupNode.svelte';
+	import GroupNode from '../lib/components/GroupNode.svelte';
 	import Minimap from '../lib/components/Minimap.svelte';
 
 	// Reference to canvas component
@@ -211,7 +211,7 @@
 	}
 </script>
 
-<div class="demo-container" class:light={theme === 'light'} class:dark={theme === 'dark'}>
+<div class="demo-container" class:kaykay-light={theme === 'light'} class:kaykay-dark={theme === 'dark'}>
 	<input
 		type="file"
 		accept=".json"
@@ -256,7 +256,7 @@
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	}
 
-	.demo-container.light {
+	.demo-container.kaykay-light {
 		background: #f5f5f5;
 		color: #333;
 	}
@@ -271,7 +271,7 @@
 		gap: 1rem;
 	}
 
-	.demo-container.light .controls {
+	.demo-container.kaykay-light .controls {
 		background: #fff;
 		border-bottom: 1px solid #ddd;
 	}
@@ -317,11 +317,11 @@
 		background: #4b5563;
 	}
 
-	.demo-container.light .controls button.theme-toggle {
+	.demo-container.kaykay-light .controls button.theme-toggle {
 		background: #374151;
 	}
 
-	.demo-container.light .controls button.theme-toggle:hover {
+	.demo-container.kaykay-light .controls button.theme-toggle:hover {
 		background: #1f2937;
 	}
 
@@ -331,7 +331,7 @@
 		color: #888;
 	}
 
-	.demo-container.light .hint {
+	.demo-container.kaykay-light .hint {
 		color: #666;
 	}
 

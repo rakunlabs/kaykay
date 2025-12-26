@@ -5,6 +5,7 @@ export { default as HandleGroup } from './components/HandleGroup.svelte';
 export { default as Edge } from './components/Edge.svelte';
 export { default as DraftEdge } from './components/DraftEdge.svelte';
 export { default as Minimap } from './components/Minimap.svelte';
+export { default as GroupNode } from './components/GroupNode.svelte';
 
 // State management
 export { FlowState, createFlow, getFlow } from './stores/flow.svelte.js';

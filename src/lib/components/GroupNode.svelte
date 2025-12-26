@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { NodeProps } from '../lib/types/index.js';
-	import type { FlowState } from '../lib/stores/flow.svelte.js';
+	import type { NodeProps } from '../types/index.js';
+	import type { FlowState } from '../stores/flow.svelte.js';
 
 	interface GroupData {
 		label?: string;
@@ -141,8 +141,8 @@
 			menuContainer.style.cssText = `
 				position: fixed;
 				visibility: hidden;
-				background: #1e1e1e;
-				border: 1px solid #333;
+				background: var(--kaykay-group-menu-bg, #1e1e1e);
+				border: 1px solid var(--kaykay-group-menu-border, #333);
 				border-radius: 8px;
 				padding: 8px;
 				min-width: 120px;
@@ -155,7 +155,7 @@
 			// Color section
 			const colorLabel = document.createElement('div');
 			colorLabel.textContent = 'Color';
-			colorLabel.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; padding: 0 4px;';
+			colorLabel.style.cssText = 'color: var(--kaykay-group-menu-label, #888); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; padding: 0 4px;';
 			menuContainer.appendChild(colorLabel);
 
 			const colorOptionsDiv = document.createElement('div');
@@ -220,30 +220,30 @@
 	});
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="group-node"
+	class="kaykay-group-node"
 	class:selected
 	class:resizing={isResizing}
 	style:background={data.color ? `${data.color}20` : undefined}
-	style:border-color={data.color ?? '#666'}
+	style:border-color={data.color ?? 'var(--kaykay-group-border, #666)'}
 	oncontextmenu={handleContextMenu}
 >
-	<div class="group-label" style:color={data.color}>
+	<div class="kaykay-group-label" style:border-color={data.color}>
 		{#if isEditing}
 			<input
 				bind:this={labelInput}
 				type="text"
-				class="group-label-input"
+				class="kaykay-group-label-input"
 				value={data.label ?? ''}
 				oninput={handleLabelInput}
 				onblur={handleLabelBlur}
 				onkeydown={handleLabelKeyDown}
-				style:color={data.color}
 			/>
 		{:else}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<span
-				class="group-label-text"
+				class="kaykay-group-label-text"
 				ondblclick={handleLabelDoubleClick}
 			>
 				{data.label || 'Group'}
@@ -254,54 +254,75 @@
 	<!-- Resize handle -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="resize-handle"
+		class="kaykay-group-resize-handle"
 		onmousedown={handleResizeMouseDown}
 	></div>
 </div>
 
 <style>
-	.group-node {
+	/* Light mode (default) */
+	.kaykay-group-node {
+		--kaykay-group-bg: rgba(100, 100, 120, 0.08);
+		--kaykay-group-border: #999;
+		--kaykay-group-label-color: #666;
+		--kaykay-group-label-bg: #fff;
+		--kaykay-group-resize-handle: #999;
+		--kaykay-group-resize-handle-hover: #3b82f6;
+
 		min-width: 100px;
 		min-height: 80px;
 		width: 100%;
 		height: 100%;
-		background: rgba(100, 100, 120, 0.1);
-		border: 2px dashed #666;
+		background: var(--kaykay-group-bg);
+		border: 2px dashed var(--kaykay-group-border);
 		border-radius: 12px;
 		position: relative;
 		box-sizing: border-box;
 	}
 
-	.group-node.selected {
+	/* Dark mode - via class */
+	:global(.kaykay-dark) .kaykay-group-node,
+	.kaykay-group-node.kaykay-dark {
+		--kaykay-group-bg: rgba(100, 100, 120, 0.15);
+		--kaykay-group-border: #777;
+		--kaykay-group-label-color: #aaa;
+		--kaykay-group-label-bg: #1a1a2e;
+		--kaykay-group-resize-handle: #777;
+		--kaykay-group-resize-handle-hover: #60a5fa;
+	}
+
+	.kaykay-group-node.selected {
 		border-style: solid;
 	}
 
-	.group-node.resizing {
+	.kaykay-group-node.resizing {
 		cursor: nwse-resize;
 	}
 
-	.group-label {
+	.kaykay-group-label {
 		position: absolute;
 		top: -24px;
 		left: 8px;
 		font-size: 0.85rem;
 		font-weight: 600;
-		color: #888;
-		background: #1a1a2e;
+		color: var(--kaykay-group-label-color);
+		background: var(--kaykay-group-label-bg);
 		padding: 2px 8px;
-		border-radius: 4px;
+		border: 1px solid var(--kaykay-group-border);
+		border-bottom: none;
+		border-radius: 4px 4px 0 0;
 	}
 
-	.group-label-text {
+	.kaykay-group-label-text {
 		cursor: text;
 		user-select: none;
 	}
 
-	.group-label-text:hover {
+	.kaykay-group-label-text:hover {
 		opacity: 0.8;
 	}
 
-	.group-label-input {
+	.kaykay-group-label-input {
 		background: transparent;
 		border: 1px solid currentColor;
 		border-radius: 2px;
@@ -316,25 +337,25 @@
 		outline: none;
 	}
 
-	.resize-handle {
+	.kaykay-group-resize-handle {
 		position: absolute;
 		bottom: -4px;
 		right: -4px;
 		width: 16px;
 		height: 16px;
 		cursor: nwse-resize;
-		background: linear-gradient(135deg, transparent 50%, #666 50%);
+		background: linear-gradient(135deg, transparent 50%, var(--kaykay-group-resize-handle) 50%);
 		border-radius: 0 0 4px 0;
 		opacity: 0;
 		transition: opacity 0.15s ease;
 	}
 
-	.group-node:hover .resize-handle,
-	.group-node.selected .resize-handle {
+	.kaykay-group-node:hover .kaykay-group-resize-handle,
+	.kaykay-group-node.selected .kaykay-group-resize-handle {
 		opacity: 1;
 	}
 
-	.resize-handle:hover {
-		background: linear-gradient(135deg, transparent 50%, #4a9eff 50%);
+	.kaykay-group-resize-handle:hover {
+		background: linear-gradient(135deg, transparent 50%, var(--kaykay-group-resize-handle-hover) 50%);
 	}
 </style>

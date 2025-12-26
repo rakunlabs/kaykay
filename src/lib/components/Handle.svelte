@@ -266,31 +266,9 @@
 		transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
-	/* Dark mode - via media query (system preference) */
-	@media (prefers-color-scheme: dark) {
-		.kaykay-handle:not(.light) {
-			--kaykay-handle-bg: #555;
-			--kaykay-handle-border: #888;
-			--kaykay-handle-input-bg: #fff;
-			--kaykay-handle-input-border: #999;
-			--kaykay-handle-output-bg: #fff;
-			--kaykay-handle-output-border: #999;
-			--kaykay-handle-can-connect-bg: #22c55e;
-			--kaykay-handle-can-connect-border: #4ade80;
-			--kaykay-handle-can-connect-shadow: #22c55e;
-			--kaykay-handle-incompatible-bg: #444;
-			--kaykay-handle-incompatible-border: #333;
-			--kaykay-handle-connecting-bg: #f59e0b;
-			--kaykay-handle-connecting-border: #fbbf24;
-			--kaykay-handle-letter-color: #333;
-			--kaykay-handle-label-color: #aaa;
-			--kaykay-handle-label-bg: #222;
-		}
-	}
-
-	/* Dark mode - via class (manual toggle) */
-	:global(.dark) .kaykay-handle,
-	.kaykay-handle.dark {
+	/* Dark mode - via class */
+	:global(.kaykay-dark) .kaykay-handle,
+	.kaykay-handle.kaykay-dark {
 		--kaykay-handle-bg: #555;
 		--kaykay-handle-border: #888;
 		--kaykay-handle-input-bg: #fff;

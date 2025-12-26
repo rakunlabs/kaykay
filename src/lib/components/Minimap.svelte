@@ -234,18 +234,45 @@
 </div>
 
 <style>
+	/* Light mode (default) */
 	.kaykay-minimap {
+		--kaykay-minimap-bg: rgba(0, 0, 0, 0.8);
+		--kaykay-minimap-node: #4a9eff;
+		--kaykay-minimap-viewport: rgba(74, 158, 255, 0.3);
+		--kaykay-minimap-border: rgba(255, 255, 255, 0.1);
+		--kaykay-minimap-border-hover: rgba(255, 255, 255, 0.3);
+
 		position: absolute;
 		bottom: 10px;
 		right: 10px;
 		border-radius: 4px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		border: 1px solid var(--kaykay-minimap-border);
 		cursor: pointer;
 		overflow: hidden;
 		z-index: 100;
 	}
 
+	/* Dark mode - via class */
+	:global(.kaykay-dark) .kaykay-minimap,
+	.kaykay-minimap.kaykay-dark {
+		--kaykay-minimap-bg: rgba(0, 0, 0, 0.9);
+		--kaykay-minimap-node: #60a5fa;
+		--kaykay-minimap-viewport: rgba(96, 165, 250, 0.3);
+		--kaykay-minimap-border: rgba(255, 255, 255, 0.15);
+		--kaykay-minimap-border-hover: rgba(255, 255, 255, 0.4);
+	}
+
+	/* Light mode - via class (manual toggle) */
+	:global(.kaykay-light) .kaykay-minimap,
+	.kaykay-minimap.kaykay-light {
+		--kaykay-minimap-bg: rgba(240, 240, 240, 0.95);
+		--kaykay-minimap-node: #3b82f6;
+		--kaykay-minimap-viewport: rgba(59, 130, 246, 0.2);
+		--kaykay-minimap-border: rgba(0, 0, 0, 0.1);
+		--kaykay-minimap-border-hover: rgba(0, 0, 0, 0.2);
+	}
+
 	.kaykay-minimap:hover {
-		border-color: rgba(255, 255, 255, 0.3);
+		border-color: var(--kaykay-minimap-border-hover);
 	}
 </style>

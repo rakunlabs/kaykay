@@ -71,6 +71,51 @@ Use `HandleGroup` to group multiple handles on the same side of a node. Handles 
 </div>
 ```
 
+## GroupNode Component
+
+kaykay provides a built-in `GroupNode` component for creating visual groups that can contain other nodes. Groups support:
+
+- Resizable boundaries (drag the corner handle)
+- Editable labels (double-click to edit)
+- Custom colors (right-click for color picker)
+- Automatic parent-child relationships (drag nodes into/out of groups)
+
+```svelte
+<script lang="ts">
+  import { Canvas, GroupNode } from 'kaykay';
+  import type { FlowNode, NodeTypes } from 'kaykay';
+
+  let nodes: FlowNode[] = $state([
+    {
+      id: 'group-1',
+      type: 'group',
+      position: { x: 50, y: 50 },
+      width: 300,
+      height: 200,
+      data: { label: 'My Group', color: '#4a9eff' }
+    },
+    {
+      id: 'node-1',
+      type: 'custom',
+      position: { x: 70, y: 80 },
+      data: { label: 'Child Node' },
+      parent_id: 'group-1'  // Makes this node a child of the group
+    }
+  ]);
+
+  const nodeTypes: NodeTypes = {
+    group: GroupNode,
+    custom: MyCustomNode
+  };
+</script>
+
+<Canvas {nodes} {edges} {nodeTypes} />
+```
+
+Group nodes use the following data properties:
+- `label` - Display name shown above the group
+- `color` - Border and label color (also tints the background)
+
 ## Port Type Validation
 
 Connections are validated based on port types:
@@ -239,7 +284,7 @@ kaykay exposes CSS custom properties (variables) for theming. Set these on a par
 }
 ```
 
-Note: The canvas also supports automatic dark mode via `prefers-color-scheme: dark` media query, or manually by adding a `dark` class to the canvas or a parent element.
+Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. Use `kaykay-light` class for light mode (default).
 
 ### Nodes
 
@@ -288,6 +333,8 @@ Note: The canvas also supports automatic dark mode via `prefers-color-scheme: da
   --kaykay-minimap-bg: rgba(0, 0, 0, 0.8);           /* Background color */
   --kaykay-minimap-node: #4a9eff;                    /* Node color */
   --kaykay-minimap-viewport: rgba(74, 158, 255, 0.3); /* Viewport indicator */
+  --kaykay-minimap-border: rgba(255, 255, 255, 0.1); /* Border color */
+  --kaykay-minimap-border-hover: rgba(255, 255, 255, 0.3); /* Border color on hover */
 }
 ```
 
@@ -322,6 +369,22 @@ Note: The canvas also supports automatic dark mode via `prefers-color-scheme: da
 }
 ```
 
+### Group Node
+
+```css
+:root {
+  --kaykay-group-bg: rgba(100, 100, 120, 0.1);  /* Group background */
+  --kaykay-group-border: #666;                   /* Group border color */
+  --kaykay-group-label-color: #888;              /* Group label text color */
+  --kaykay-group-label-bg: #1a1a2e;              /* Group label background */
+  --kaykay-group-resize-handle: #666;            /* Resize handle color */
+  --kaykay-group-resize-handle-hover: #4a9eff;   /* Resize handle hover color */
+  --kaykay-group-menu-bg: #1e1e1e;               /* Context menu background */
+  --kaykay-group-menu-border: #333;              /* Context menu border */
+  --kaykay-group-menu-label: #888;               /* Context menu label color */
+}
+```
+
 ### Example: Custom Theme
 
 ```css
@@ -353,6 +416,25 @@ Note: The canvas also supports automatic dark mode via `prefers-color-scheme: da
   /* Nodes */
   --kaykay-node-selected-outline: #60a5fa;
 }
+```
+
+### Dark/Light Mode
+
+kaykay components use light mode by default. Control the theme using CSS classes:
+
+```html
+<!-- Dark mode on all kaykay components -->
+<div class="kaykay-dark">
+  <Canvas {nodes} {edges} {nodeTypes} />
+</div>
+
+<!-- Light mode (default, explicit) -->
+<div class="kaykay-light">
+  <Canvas {nodes} {edges} {nodeTypes} />
+</div>
+
+<!-- Apply directly to Canvas -->
+<Canvas class="kaykay-dark" {nodes} {edges} {nodeTypes} />
 ```
 
 ## Next Steps

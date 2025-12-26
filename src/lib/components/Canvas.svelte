@@ -178,9 +178,10 @@
 	);
 
 	// Compute background style that moves and scales with viewport
-	// Dot opacity decreases when zooming out (zoom < 1)
+	// Dot opacity decreases when zooming out (zoom < 1) or zooming in too much (zoom > 1)
+	// Peak visibility at zoom = 1, fades on both sides
 	const bgSize = $derived(20 * flow.viewport.zoom);
-	const dotOpacity = $derived(Math.min(1, Math.max(0.1, flow.viewport.zoom)));
+	const dotOpacity = $derived(Math.max(0.1, Math.min(1, flow.viewport.zoom ** 2)));
 	const bgStyle = $derived(
 		`background-size: ${bgSize}px ${bgSize}px; background-position: ${flow.viewport.x}px ${flow.viewport.y}px; --kaykay-canvas-dot-opacity: ${dotOpacity};`
 	);
@@ -255,17 +256,9 @@
 		outline: none;
 	}
 
-	/* Dark mode - via media query (system preference) */
-	@media (prefers-color-scheme: dark) {
-		.kaykay-canvas:not(.light) {
-			--kaykay-canvas-bg: #2a2a3a;
-			--kaykay-canvas-dot-rgb: 102, 102, 102;
-		}
-	}
-
-	/* Dark mode - via class (manual toggle) */
-	:global(.dark) .kaykay-canvas,
-	.kaykay-canvas.dark {
+	/* Dark mode - via class */
+	:global(.kaykay-dark) .kaykay-canvas,
+	.kaykay-canvas.kaykay-dark {
 		--kaykay-canvas-bg: #2a2a3a;
 		--kaykay-canvas-dot-rgb: 102, 102, 102;
 	}
