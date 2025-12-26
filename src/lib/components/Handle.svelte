@@ -203,6 +203,44 @@
 		// Visual feedback handled by CSS classes
 	}
 
+	// Touch event handlers for connection creation
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length !== 1) return;
+		if (flow.locked) return;
+		e.stopPropagation();
+
+		// If there's an active draft connection and this is an input handle, finish it
+		if (flow.draft_connection && type === 'input') {
+			if (flow.draft_connection.source_node_id !== node_id) {
+				flow.finishConnection(node_id, id);
+			}
+			return;
+		}
+
+		// If no draft connection and this is an output handle, start one
+		if (!flow.draft_connection && type === 'output') {
+			calculateHandleOffset();
+			const absolute_position = getAbsolutePosition();
+			flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
+		}
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (type !== 'input') return;
+		if (!flow.draft_connection) return;
+		if (flow.locked) return;
+		e.stopPropagation();
+
+		// Check if the touch ended on this handle
+		if (e.changedTouches.length > 0) {
+			const touch = e.changedTouches[0];
+			const target = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement;
+			if (target?.closest('[data-handle-id]') === handleEl) {
+				flow.finishConnection(node_id, id);
+			}
+		}
+	}
+
 	// Computed style - only apply custom styles, positioning handled by CSS classes
 	const computedStyle = $derived(style);
 </script>
@@ -223,6 +261,8 @@
 	onmouseup={handleMouseUp}
 	onclick={handleClick}
 	onmouseenter={handleMouseEnter}
+	ontouchstart={handleTouchStart}
+	ontouchend={handleTouchEnd}
 	role="button"
 	tabindex="-1"
 	data-handle-id={id}
@@ -264,6 +304,7 @@
 		cursor: crosshair;
 		z-index: 10;
 		transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+		touch-action: none; /* Prevent default touch behaviors for custom handling */
 	}
 
 	/* Dark mode - via class */

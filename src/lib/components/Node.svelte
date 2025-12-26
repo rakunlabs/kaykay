@@ -146,6 +146,138 @@
 		window.removeEventListener('mouseup', handleMouseUp);
 	}
 
+	// Touch event handlers for node dragging
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length !== 1) return;
+
+		// Don't start dragging if touching a handle
+		const target = e.target as HTMLElement;
+		if (target.closest('[data-handle-id]')) return;
+
+		e.stopPropagation();
+
+		const touch = e.touches[0];
+		flow.selectNode(node.id, false);
+
+		// Don't allow dragging when locked
+		if (flow.locked) return;
+
+		isDragging = true;
+		hasMoved = false;
+
+		// Use absolute position for drag offset calculation
+		dragOffset = {
+			x: touch.clientX - absolutePosition.x * flow.viewport.zoom - flow.viewport.x,
+			y: touch.clientY - absolutePosition.y * flow.viewport.zoom - flow.viewport.y,
+		};
+
+		// Store start position for movement detection
+		dragStartPos = { x: touch.clientX, y: touch.clientY };
+
+		flow.callbacks.on_node_drag_start?.(node.id);
+
+		window.addEventListener('touchmove', handleTouchMove, { passive: false });
+		window.addEventListener('touchend', handleTouchEnd);
+		window.addEventListener('touchcancel', handleTouchCancel);
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (!isDragging || flow.locked || e.touches.length !== 1) return;
+
+		e.preventDefault(); // Prevent scrolling while dragging
+
+		const touch = e.touches[0];
+
+		// Check if we've moved enough to consider it a drag (5px threshold)
+		const dx = touch.clientX - dragStartPos.x;
+		const dy = touch.clientY - dragStartPos.y;
+		if (!hasMoved && Math.sqrt(dx * dx + dy * dy) > 5) {
+			hasMoved = true;
+		}
+
+		// Calculate new absolute position
+		const newAbsolutePos: Position = {
+			x: (touch.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
+			y: (touch.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
+		};
+
+		// If node has a parent, convert to relative position
+		if (node.parent_id) {
+			const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
+			flow.updateNodePosition(node.id, {
+				x: newAbsolutePos.x - parentAbsPos.x,
+				y: newAbsolutePos.y - parentAbsPos.y,
+			});
+		} else {
+			flow.updateNodePosition(node.id, newAbsolutePos);
+		}
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (isDragging && e.changedTouches.length > 0) {
+			isDragging = false;
+
+			const touch = e.changedTouches[0];
+
+			// Only check for group changes if the node actually moved
+			if (hasMoved && node.type !== 'group') {
+				const dropPos: Position = {
+					x: (touch.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
+					y: (touch.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
+				};
+
+				// Check if still inside current parent group
+				if (node.parent_id) {
+					const currentParent = flow.getNode(node.parent_id);
+					if (currentParent) {
+						const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
+						const isInsideParent = 
+							dropPos.x >= parentAbsPos.x &&
+							dropPos.x <= parentAbsPos.x + currentParent.computed_width &&
+							dropPos.y >= parentAbsPos.y &&
+							dropPos.y <= parentAbsPos.y + currentParent.computed_height;
+						
+						if (isInsideParent) {
+							// Still inside parent, don't change anything
+							if (hasMoved) {
+								flow.callbacks.on_node_drag_end?.(node.id, node.position);
+							}
+							cleanupTouchListeners();
+							return;
+						} else {
+							// Dropped outside parent - ungroup
+							flow.setNodeParent(node.id, undefined);
+						}
+					}
+				}
+
+				// Check if dropped into a new group (only if we don't have a parent or just left one)
+				if (!node.parent_id) {
+					const targetGroup = flow.findGroupAtPosition(dropPos, [node.id]);
+					if (targetGroup) {
+						flow.setNodeParent(node.id, targetGroup.id);
+					}
+				}
+			}
+
+			if (hasMoved) {
+				flow.callbacks.on_node_drag_end?.(node.id, node.position);
+			}
+		}
+		cleanupTouchListeners();
+	}
+
+	function handleTouchCancel() {
+		isDragging = false;
+		cleanupTouchListeners();
+	}
+
+	function cleanupTouchListeners() {
+		window.removeEventListener('touchmove', handleTouchMove);
+		window.removeEventListener('touchend', handleTouchEnd);
+		window.removeEventListener('touchcancel', handleTouchCancel);
+	}
+
 	// Compute style using absolute position for rendering
 	const nodeStyle = $derived(
 		`transform: translate(${absolutePosition.x}px, ${absolutePosition.y}px); z-index: ${node.z_index ?? (node.type === 'group' ? 0 : 1)};`
@@ -167,6 +299,7 @@
 	style:width={node.width ? `${node.width}px` : undefined}
 	style:height={node.height ? `${node.height}px` : undefined}
 	onmousedown={handleMouseDown}
+	ontouchstart={handleTouchStart}
 	role="group"
 	data-node-id={node.id}
 >
@@ -185,6 +318,7 @@
 		position: absolute;
 		cursor: move;
 		user-select: none;
+		touch-action: none; /* Prevent default touch behaviors for custom handling */
 	}
 
 	.kaykay-node.locked {

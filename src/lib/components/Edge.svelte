@@ -279,6 +279,11 @@
 		closeContextMenu();
 	}
 
+	function deleteEdge() {
+		flow.removeEdge(edge.id);
+		closeContextMenu();
+	}
+
 	// Portal-based context menu rendering
 	let menuContainer: HTMLDivElement | null = null;
 
@@ -431,6 +436,39 @@
 			});
 			colorSection.appendChild(colorOptionsDiv);
 			menuContainer.appendChild(colorSection);
+
+			// Delete section
+			const deleteSection = document.createElement('div');
+			deleteSection.style.marginTop = '8px';
+			deleteSection.style.paddingTop = '8px';
+			deleteSection.style.borderTop = '1px solid #333';
+
+			const deleteBtn = document.createElement('button');
+			deleteBtn.textContent = 'Delete Edge';
+			deleteBtn.style.cssText = `
+				width: 100%;
+				padding: 8px 12px;
+				background: #dc2626;
+				border: 1px solid #b91c1c;
+				border-radius: 4px;
+				color: #fff;
+				cursor: pointer;
+				font-size: 12px;
+				font-weight: 500;
+				transition: background 0.15s ease;
+			`;
+			deleteBtn.onmouseenter = () => {
+				deleteBtn.style.background = '#b91c1c';
+			};
+			deleteBtn.onmouseleave = () => {
+				deleteBtn.style.background = '#dc2626';
+			};
+			deleteBtn.onclick = (e) => {
+				e.stopPropagation();
+				deleteEdge();
+			};
+			deleteSection.appendChild(deleteBtn);
+			menuContainer.appendChild(deleteSection);
 
 			// Prevent clicks inside menu from closing it
 			menuContainer.onclick = (e) => e.stopPropagation();

@@ -55,6 +55,12 @@
 	let lastMousePos = $state<Position | null>(null);
 	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
+	// Touch state for pinch-to-zoom and panning
+	let lastTouchDistance = $state<number | null>(null);
+	let lastTouchCenter = $state<Position | null>(null);
+	let isTouchPanning = $state(false);
+	let touchStartPos = $state<Position | null>(null);
+
 	// Handle mouse wheel for zooming
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
@@ -172,6 +178,163 @@
 		}
 	}
 
+	// Helper to calculate distance between two touch points
+	function getTouchDistance(touches: TouchList): number {
+		if (touches.length < 2) return 0;
+		const dx = touches[0].clientX - touches[1].clientX;
+		const dy = touches[0].clientY - touches[1].clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	// Helper to calculate center point between two touches
+	function getTouchCenter(touches: TouchList): Position {
+		if (touches.length < 2) {
+			return { x: touches[0].clientX, y: touches[0].clientY };
+		}
+		return {
+			x: (touches[0].clientX + touches[1].clientX) / 2,
+			y: (touches[0].clientY + touches[1].clientY) / 2,
+		};
+	}
+
+	// Handle touch start for panning and pinch-to-zoom
+	function handleTouchStart(e: TouchEvent) {
+		const target = e.target as HTMLElement;
+		const isOnNode = target.closest('[data-node-id]');
+		const isOnHandle = target.closest('[data-handle-id]');
+		const isOnEdge = target.closest('.kaykay-edge');
+
+		// Cancel draft connection if tapping on canvas background
+		if (e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge && flow.draft_connection) {
+			flow.cancelConnection();
+			connectionDragDistance = 0;
+			return;
+		}
+
+		if (e.touches.length === 2) {
+			// Pinch-to-zoom: track initial distance and center
+			e.preventDefault();
+			lastTouchDistance = getTouchDistance(e.touches);
+			lastTouchCenter = getTouchCenter(e.touches);
+			const rect = containerEl.getBoundingClientRect();
+			touchStartPos = {
+				x: lastTouchCenter.x - rect.left,
+				y: lastTouchCenter.y - rect.top,
+			};
+		} else if (e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge) {
+			// Single touch panning on canvas background
+			isTouchPanning = true;
+			lastTouchCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+			flow.clearSelection();
+		}
+
+		connectionDragDistance = 0;
+	}
+
+	// Handle touch move for panning and pinch-to-zoom
+	function handleTouchMove(e: TouchEvent) {
+		if (e.touches.length === 2 && lastTouchDistance !== null && lastTouchCenter !== null && touchStartPos !== null) {
+			// Pinch-to-zoom
+			e.preventDefault();
+			const newDistance = getTouchDistance(e.touches);
+			const newCenter = getTouchCenter(e.touches);
+			const rect = containerEl.getBoundingClientRect();
+
+			// Calculate zoom delta
+			const zoomDelta = (newDistance - lastTouchDistance) * 0.005;
+			const center = {
+				x: newCenter.x - rect.left,
+				y: newCenter.y - rect.top,
+			};
+			flow.zoom(zoomDelta, center);
+
+			// Also pan based on center movement
+			const dx = newCenter.x - lastTouchCenter.x;
+			const dy = newCenter.y - lastTouchCenter.y;
+			flow.pan(dx, dy);
+
+			lastTouchDistance = newDistance;
+			lastTouchCenter = newCenter;
+		} else if (isTouchPanning && lastTouchCenter !== null && e.touches.length === 1) {
+			// Single touch panning
+			const dx = e.touches[0].clientX - lastTouchCenter.x;
+			const dy = e.touches[0].clientY - lastTouchCenter.y;
+			flow.pan(dx, dy);
+			lastTouchCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+		}
+
+		// Update draft connection position for touch
+		if (flow.draft_connection && containerEl && e.touches.length === 1) {
+			const touch = e.touches[0];
+			const rect = containerEl.getBoundingClientRect();
+			const relativeX = touch.clientX - rect.left;
+			const relativeY = touch.clientY - rect.top;
+
+			const canvasPos = {
+				x: (relativeX - flow.viewport.x) / flow.viewport.zoom,
+				y: (relativeY - flow.viewport.y) / flow.viewport.zoom,
+			};
+			flow.updateConnection(canvasPos);
+
+			// Track movement for drag vs tap detection
+			if (lastTouchCenter) {
+				connectionDragDistance += Math.abs(touch.clientX - lastTouchCenter.x) + Math.abs(touch.clientY - lastTouchCenter.y);
+			}
+		}
+	}
+
+	// Handle touch end
+	function handleTouchEnd(e: TouchEvent) {
+		if (e.touches.length < 2) {
+			lastTouchDistance = null;
+			touchStartPos = null;
+		}
+
+		if (e.touches.length === 0) {
+			// Try to complete draft connection
+			if (flow.draft_connection && e.changedTouches.length > 0) {
+				const touch = e.changedTouches[0];
+				const target = document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement;
+				const handleEl = target?.closest('[data-handle-id]') as HTMLElement;
+
+				if (handleEl) {
+					const handleId = handleEl.getAttribute('data-handle-id');
+					const handleType = handleEl.getAttribute('data-handle-type');
+					const nodeEl = handleEl.closest('[data-node-id]') as HTMLElement;
+					const nodeId = nodeEl?.getAttribute('data-node-id');
+
+					if (handleId && nodeId && handleType === 'input') {
+						flow.finishConnection(nodeId, handleId);
+						connectionDragDistance = 0;
+						isTouchPanning = false;
+						lastTouchCenter = null;
+						return;
+					}
+				}
+
+				// Only cancel if user was dragging (not tap-to-connect mode)
+				if (connectionDragDistance > 10) {
+					flow.cancelConnection();
+				}
+				connectionDragDistance = 0;
+			}
+
+			isTouchPanning = false;
+			lastTouchCenter = null;
+		}
+	}
+
+	// Handle touch cancel
+	function handleTouchCancel() {
+		isTouchPanning = false;
+		lastTouchDistance = null;
+		lastTouchCenter = null;
+		touchStartPos = null;
+		if (flow.draft_connection) {
+			flow.cancelConnection();
+		}
+	}
+
 	// Compute transform style
 	const transformStyle = $derived(
 		`translate(${flow.viewport.x}px, ${flow.viewport.y}px) scale(${flow.viewport.zoom})`
@@ -200,6 +363,10 @@
 	onmousemove={handleMouseMove}
 	onmouseup={handleMouseUp}
 	onmouseleave={handleMouseLeave}
+	ontouchstart={handleTouchStart}
+	ontouchmove={handleTouchMove}
+	ontouchend={handleTouchEnd}
+	ontouchcancel={handleTouchCancel}
 	role="application"
 	tabindex="0"
 >
@@ -254,6 +421,7 @@
 		background-size: 20px 20px;
 		cursor: grab;
 		outline: none;
+		touch-action: none; /* Prevent default touch behaviors for custom handling */
 	}
 
 	/* Dark mode - via class */

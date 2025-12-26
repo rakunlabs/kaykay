@@ -173,6 +173,43 @@
 		window.removeEventListener('mousemove', handleMouseMove);
 		window.removeEventListener('mouseup', handleMouseUp);
 	}
+
+	// Touch event handlers for minimap navigation
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length !== 1) return;
+		e.preventDefault();
+		isDragging = true;
+		const touch = e.touches[0];
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		handleMinimapClick(touch.clientX - rect.left, touch.clientY - rect.top);
+		window.addEventListener('touchmove', handleTouchMove, { passive: false });
+		window.addEventListener('touchend', handleTouchEnd);
+		window.addEventListener('touchcancel', handleTouchCancel);
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (!isDragging || !minimapEl || e.touches.length !== 1) return;
+		e.preventDefault();
+		const touch = e.touches[0];
+		const rect = minimapEl.getBoundingClientRect();
+		handleMinimapClick(touch.clientX - rect.left, touch.clientY - rect.top);
+	}
+
+	function handleTouchEnd() {
+		isDragging = false;
+		cleanupTouchListeners();
+	}
+
+	function handleTouchCancel() {
+		isDragging = false;
+		cleanupTouchListeners();
+	}
+
+	function cleanupTouchListeners() {
+		window.removeEventListener('touchmove', handleTouchMove);
+		window.removeEventListener('touchend', handleTouchEnd);
+		window.removeEventListener('touchcancel', handleTouchCancel);
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -183,6 +220,7 @@
 	style:background-color={bgColor}
 	bind:this={minimapEl}
 	onmousedown={handleMouseDown}
+	ontouchstart={handleTouchStart}
 >
 	<svg {width} {height}>
 		<!-- Render nodes -->
@@ -250,6 +288,7 @@
 		cursor: pointer;
 		overflow: hidden;
 		z-index: 100;
+		touch-action: none; /* Prevent default touch behaviors for custom handling */
 	}
 
 	/* Dark mode - via class */
