@@ -28,7 +28,7 @@
 
 	// Use CSS variables with fallbacks
 	const bgColor = $derived(backgroundColor ?? 'var(--kaykay-minimap-bg, rgba(0, 0, 0, 0.8))');
-	const nodeFillColor = $derived(nodeColor ?? 'var(--kaykay-minimap-node, #4a9eff)');
+	const nodeFillColor = $derived(nodeColor ?? 'var(--kaykay-minimap-node, #eb5425)');
 	const viewportFillColor = $derived(viewportColor ?? 'var(--kaykay-minimap-viewport, rgba(74, 158, 255, 0.3))');
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
@@ -223,20 +223,22 @@
 	ontouchstart={handleTouchStart}
 >
 	<svg {width} {height}>
-		<!-- Render nodes -->
+		<!-- Render nodes (skip nodes inside groups - they have parent_id) -->
 		{#each flow.nodes as node}
-			{@const pos = toMinimapPos(node.position.x, node.position.y)}
-			{@const nodeWidth = (node.computed_width || 100) * scale}
-			{@const nodeHeight = (node.computed_height || 50) * scale}
-			<rect
-				x={pos.x}
-				y={pos.y}
-				width={nodeWidth}
-				height={nodeHeight}
-				fill={nodeFillColor}
-				rx="2"
-				ry="2"
-			/>
+			{#if !node.parent_id}
+				{@const pos = toMinimapPos(node.position.x, node.position.y)}
+				{@const nodeWidth = (node.computed_width || 100) * scale}
+				{@const nodeHeight = (node.computed_height || 50) * scale}
+				<rect
+					x={pos.x}
+					y={pos.y}
+					width={nodeWidth}
+					height={nodeHeight}
+					fill={nodeFillColor}
+					rx="2"
+					ry="2"
+				/>
+			{/if}
 		{/each}
 
 		<!-- Render edges -->
@@ -274,11 +276,11 @@
 <style>
 	/* Light mode (default) */
 	.kaykay-minimap {
-		--kaykay-minimap-bg: rgba(0, 0, 0, 0.8);
-		--kaykay-minimap-node: #4a9eff;
-		--kaykay-minimap-viewport: rgba(74, 158, 255, 0.3);
-		--kaykay-minimap-border: rgba(255, 255, 255, 0.1);
-		--kaykay-minimap-border-hover: rgba(255, 255, 255, 0.3);
+		--kaykay-minimap-bg: #f0f0f0f2;
+		--kaykay-minimap-node: #fff;
+		--kaykay-minimap-viewport: #d0d0d033;
+		--kaykay-minimap-border: #0000001a;
+		--kaykay-minimap-border-hover: #00000033;
 
 		position: absolute;
 		bottom: 10px;
@@ -294,21 +296,11 @@
 	/* Dark mode - via class */
 	:global(.kaykay-dark) .kaykay-minimap,
 	.kaykay-minimap.kaykay-dark {
-		--kaykay-minimap-bg: rgba(0, 0, 0, 0.9);
-		--kaykay-minimap-node: #60a5fa;
-		--kaykay-minimap-viewport: rgba(96, 165, 250, 0.3);
-		--kaykay-minimap-border: rgba(255, 255, 255, 0.15);
-		--kaykay-minimap-border-hover: rgba(255, 255, 255, 0.4);
-	}
-
-	/* Light mode - via class (manual toggle) */
-	:global(.kaykay-light) .kaykay-minimap,
-	.kaykay-minimap.kaykay-light {
-		--kaykay-minimap-bg: rgba(240, 240, 240, 0.95);
-		--kaykay-minimap-node: #3b82f6;
-		--kaykay-minimap-viewport: rgba(59, 130, 246, 0.2);
-		--kaykay-minimap-border: rgba(0, 0, 0, 0.1);
-		--kaykay-minimap-border-hover: rgba(0, 0, 0, 0.2);
+		--kaykay-minimap-bg: #000000e6;
+		--kaykay-minimap-node: #eb5425;
+		--kaykay-minimap-viewport: #d0d0d04d;
+		--kaykay-minimap-border: #ffffff26;
+		--kaykay-minimap-border-hover: #ffffff66;
 	}
 
 	.kaykay-minimap:hover {

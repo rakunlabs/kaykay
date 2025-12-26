@@ -1,0 +1,42 @@
+<script lang="ts">
+	import Handle from '../../../lib/components/Handle.svelte';
+	import type { NodeProps } from '../../../lib/types/index.js';
+
+	let { data }: NodeProps<{ label: string }> = $props();
+</script>
+
+<div class="demo-node styled-node">
+	<div class="node-title">{data.label}</div>
+	<Handle id="in" type="input" port="data" position="left" style="background: #22c55e; border-color: #16a34a;" />
+	<Handle id="out" type="output" port="data" position="right" style="background: #f59e0b; border-color: #d97706;" letter="O" />
+</div>
+
+<style>
+	.demo-node {
+		background: #1f1f1f;
+		border: 2px solid #444;
+		border-radius: 8px;
+		padding: 16px 24px;
+		min-width: 120px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	}
+
+	:global(.kaykay-light) .demo-node {
+		background: #fff;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	}
+
+	.node-title {
+		font-weight: 600;
+		color: #fff;
+		font-size: 0.9rem;
+	}
+
+	:global(.kaykay-light) .node-title {
+		color: #333;
+	}
+
+	.styled-node {
+		border-color: #06b6d4;
+	}
+</style>

@@ -1,343 +1,618 @@
 <script lang="ts">
-	import Canvas from '../lib/components/Canvas.svelte';
-	import type { FlowNode, FlowEdge, NodeTypes } from '../lib/types/index.js';
-	import TextNode from './TextNode.svelte';
-	import ProcessNode from './ProcessNode.svelte';
-	import OutputNode from './OutputNode.svelte';
-	import GroupNode from '../lib/components/GroupNode.svelte';
-	import Minimap from '../lib/components/Minimap.svelte';
+	// About/Landing page - Hacker Theme
+	let activeTab: "npm" | "pnpm" | "yarn" = $state("npm");
 
-	// Reference to canvas component
-	let canvasRef: ReturnType<typeof Canvas> | undefined;
-
-	// Theme state
-	let theme: 'light' | 'dark' = $state('dark');
-
-	function toggleTheme() {
-		theme = theme === 'dark' ? 'light' : 'dark';
-	}
-
-	// Define initial nodes
-	let nodes: FlowNode[] = $state([
-		{
-			id: 'group-1',
-			type: 'group',
-			position: { x: 40, y: 40 },
-			width: 280,
-			height: 280,
-			data: { label: 'Inputs', color: '#4a9eff' }
-		},
-		{
-			id: 'node-1',
-			type: 'text',
-			position: { x: 60, y: 60 },
-			data: { label: 'Input A', color: '#4a9eff' },
-			parent_id: 'group-1'
-		},
-		{
-			id: 'node-2',
-			type: 'text',
-			position: { x: 60, y: 160 },
-			data: { label: 'Input B', color: '#ff6b6b' },
-			parent_id: 'group-1'
-		},
-		{
-			id: 'node-3',
-			type: 'process',
-			position: { x: 400, y: 140 },
-			data: { operation: 'Merge', description: 'Combines two inputs' }
-		},
-		{
-			id: 'node-4',
-			type: 'output',
-			position: { x: 640, y: 160 },
-			data: { title: 'Result' }
-		}
-	]);
-
-	// Define initial edges
-	let edges: FlowEdge[] = $state([
-		{
-			id: 'edge-1',
-			source: 'node-1',
-			source_handle: 'out',
-			target: 'node-3',
-			target_handle: 'input-1',
-			type: 'bezier'
-		},
-		{
-			id: 'edge-2',
-			source: 'node-2',
-			source_handle: 'out',
-			target: 'node-3',
-			target_handle: 'input-2',
-			type: 'bezier'
-		},
-		{
-			id: 'edge-3',
-			source: 'node-3',
-			source_handle: 'output',
-			target: 'node-4',
-			target_handle: 'in',
-			type: 'bezier'
-		}
-	]);
-
-	// Register node types
-	const nodeTypes: NodeTypes = {
-		text: TextNode,
-		process: ProcessNode,
-		output: OutputNode,
-		group: GroupNode
+	const installCommands = {
+		npm: "npm install kaykay",
+		pnpm: "pnpm add kaykay",
+		yarn: "yarn add kaykay",
 	};
-
-	// Canvas configuration
-	const config = {
-		min_zoom: 0.5,
-		max_zoom: 2,
-		snap_to_grid: true,
-		allow_delete: true,
-		default_edge_type: 'bezier' as const
-	};
-
-	// Callbacks
-	const callbacks = {
-		on_node_click: (nodeId: string) => console.log('Node clicked:', nodeId),
-		on_connect: (edge: FlowEdge) => {
-			console.log('New connection:', edge);
-			edges.push(edge);
-		},
-		on_delete: (nodeIds: string[], edgeIds: string[]) => {
-			console.log('Deleted:', { nodeIds, edgeIds });
-			nodes = nodes.filter(n => !nodeIds.includes(n.id));
-			edges = edges.filter(e => !edgeIds.includes(e.id));
-		}
-	};
-
-	// Add new node function
-	function addNode() {
-		const flow = canvasRef?.getFlow();
-		if (!flow) return;
-		
-		const newNode: FlowNode = {
-			id: `node-${Date.now()}`,
-			type: 'text',
-			position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
-			data: { label: `Node ${flow.nodes.length + 1}`, color: '#22c55e' }
-		};
-		flow.addNode(newNode);
-	}
-
-	// Add new group function
-	function addGroup() {
-		const flow = canvasRef?.getFlow();
-		if (!flow) return;
-		
-		const colors = ['#4a9eff', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6'];
-		const color = colors[Math.floor(Math.random() * colors.length)];
-		
-		const newGroup: FlowNode = {
-			id: `group-${Date.now()}`,
-			type: 'group',
-			position: { x: 100 + Math.random() * 100, y: 100 + Math.random() * 100 },
-			width: 250,
-			height: 200,
-			data: { label: `Group ${flow.nodes.filter(n => n.type === 'group').length + 1}`, color }
-		};
-		flow.addNode(newGroup);
-	}
-
-	// Export flow as JSON
-	function exportFlow() {
-		const flow = canvasRef?.getFlow();
-		if (!flow) return;
-		
-		const data = flow.toJSON();
-		const json = JSON.stringify(data, null, 2);
-		const blob = new Blob([json], { type: 'application/json' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = 'flow.json';
-		a.click();
-		URL.revokeObjectURL(url);
-	}
-
-	// Clear all nodes and edges
-	function clearFlow() {
-		const flow = canvasRef?.getFlow();
-		if (!flow) return;
-		
-		if (confirm('Clear all nodes and edges?')) {
-			// Remove all nodes (this also removes connected edges)
-			const nodeIds = flow.nodes.map(n => n.id);
-			nodeIds.forEach(id => flow.removeNode(id));
-		}
-	}
-
-	// Hidden file input reference
-	let fileInput: HTMLInputElement;
-
-	// Import flow from JSON file
-	function importFlow() {
-		fileInput?.click();
-	}
-
-	function handleFileSelect(e: Event) {
-		const input = e.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (!file) return;
-
-		const reader = new FileReader();
-		reader.onload = (event) => {
-			try {
-				const json = event.target?.result as string;
-				const data = JSON.parse(json);
-				
-				const flow = canvasRef?.getFlow();
-				if (!flow) return;
-
-				// Load the imported data
-				flow.fromJSON(data);
-			} catch (err) {
-				alert('Failed to import JSON: Invalid format');
-				console.error(err);
-			}
-		};
-		reader.readAsText(file);
-		
-		// Reset input so same file can be selected again
-		input.value = '';
-	}
 </script>
 
-<div class="demo-container" class:kaykay-light={theme === 'light'} class:kaykay-dark={theme === 'dark'}>
-	<input
-		type="file"
-		accept=".json"
-		bind:this={fileInput}
-		onchange={handleFileSelect}
-		style="display: none"
-	/>
-	<div class="controls">
-		<h1>kaykay - Flow Editor Demo</h1>
-		<div class="button-group">
-			<button onclick={addNode}>Add Node</button>
-			<button onclick={addGroup}>Add Group</button>
-			<button onclick={importFlow}>Import JSON</button>
-			<button onclick={exportFlow}>Export JSON</button>
-			<button onclick={clearFlow} class="danger">Clear All</button>
-			<button onclick={toggleTheme} class="theme-toggle">
-				{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-			</button>
+<div class="about-page">
+	<header class="hero">
+		<span class="hero-logo-wrapper">
+			<img src="/kaykay.png" alt="kaykay logo" class="hero-logo" />
+			<h1>kaykay</h1>
+		</span>
+
+		<p class="tagline">A modern, lightweight flow editor for Svelte 5</p>
+		<div class="hero-actions">
+			<a href="/playground" class="btn btn-primary">[ENTER] Playground</a>
+			<a href="/examples/getting-started" class="btn btn-secondary"
+				>[DOCS] Get Started</a
+			>
 		</div>
-		<p class="hint">
-			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
-			Connect: Drag from output to input | Delete: Select & press Delete/Backspace |
-			Waypoints: Ctrl+click edge to add, Ctrl+click waypoint to delete |
-			Groups: Drag nodes into/out of groups
-		</p>
-	</div>
-	
-	<div class="canvas-wrapper">
-		<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} {config} {callbacks} >
-			<Minimap />
-		</Canvas>
-	</div>
+	</header>
+
+	<section class="install-section">
+		<h2><span class="section-prefix">#</span> Installation</h2>
+		<div class="code-block terminal">
+			<div class="code-tabs">
+				<button
+					class="tab"
+					class:active={activeTab === "npm"}
+					onclick={() => (activeTab = "npm")}>npm</button
+				>
+				<button
+					class="tab"
+					class:active={activeTab === "pnpm"}
+					onclick={() => (activeTab = "pnpm")}>pnpm</button
+				>
+				<button
+					class="tab"
+					class:active={activeTab === "yarn"}
+					onclick={() => (activeTab = "yarn")}>yarn</button
+				>
+			</div>
+			<pre><span style="user-select: none;">{'$ '}</span><span class="output">{installCommands[activeTab]}</span></pre>
+		</div>
+	</section>
+
+	<section class="features-section">
+		<h2><span class="section-prefix">#</span> Features</h2>
+		<div class="features-grid">
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[5]</span>
+					<h3>Svelte_5_Native</h3>
+				</div>
+				<p class="feature-desc">
+					// Built with Svelte 5 runes and modern reactivity
+				</p>
+			</div>
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[0]</span>
+					<h3>Zero_Dependencies</h3>
+				</div>
+				<p class="feature-desc">
+					// Lightweight with no external runtime deps
+				</p>
+			</div>
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[T]</span>
+					<h3>TypeScript_First</h3>
+				</div>
+				<p class="feature-desc">
+					// Full type safety with comprehensive definitions
+				</p>
+			</div>
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[C]</span>
+					<h3>Custom_Nodes</h3>
+				</div>
+				<p class="feature-desc">
+					// Create components with your own design
+				</p>
+			</div>
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[G]</span>
+					<h3>Node_Grouping</h3>
+				</div>
+				<p class="feature-desc">
+					// Organize nodes with drag-and-drop support
+				</p>
+			</div>
+			<div class="feature">
+				<div class="feature-header">
+					<span class="feature-icon">[E]</span>
+					<h3>Flexible_Edges</h3>
+				</div>
+				<p class="feature-desc">
+					// Bezier, straight, step with waypoints
+				</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="quick-start-section">
+		<h2><span class="section-prefix">#</span> Quick_Start</h2>
+		<div class="code-block terminal large">
+			<div class="code-header">
+				<span class="file-path">~/project/src/App.svelte</span>
+			</div>
+			<pre><span class="comment">&lt;!-- App.svelte --&gt;</span>
+<span class="tag">&lt;script&gt;</span>
+  <span class="keyword">import</span> {"{"} Canvas, Handle {"}"} <span
+					class="keyword">from</span
+				> <span class="string">'kaykay'</span>;
+
+  <span class="keyword">const</span> nodes = [
+    {"{"} id: <span class="string">'1'</span>, type: <span class="string"
+					>'custom'</span
+				>, position: {"{"} x: <span class="number">100</span>, y: <span
+					class="number">100</span
+				> {"}"}, data: {"{"} label: <span class="string">'Node 1'</span
+				> {"}"} {"}"},
+    {"{"} id: <span class="string">'2'</span>, type: <span class="string"
+					>'custom'</span
+				>, position: {"{"} x: <span class="number">300</span>, y: <span
+					class="number">200</span
+				> {"}"}, data: {"{"} label: <span class="string">'Node 2'</span
+				> {"}"} {"}"}
+  ];
+
+  <span class="keyword">const</span> edges = [
+    {"{"} id: <span class="string">'e1'</span>, source: <span class="string"
+					>'1'</span
+				>, source_handle: <span class="string">'out'</span
+				>, target: <span class="string">'2'</span>, target_handle: <span
+					class="string">'in'</span
+				> {"}"}
+  ];
+
+  <span class="keyword">const</span> nodeTypes = {"{"} custom: CustomNode {"}"};
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="tag">&lt;div</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;Canvas</span
+				> {"{"}nodes{"}"} {"{"}edges{"}"} {"{"}nodeTypes{"}"} <span
+					class="tag">/&gt;</span
+				>
+<span class="tag">&lt;/div&gt;</span></pre>
+		</div>
+	</section>
+
+	<section class="links-section">
+		<h2><span class="section-prefix">#</span> Resources</h2>
+		<div class="links-grid">
+			<a href="/examples/getting-started" class="link-card">
+				<span class="link-prefix">[01]</span>
+				<h3>getting_started</h3>
+				<p>// Learn the basics</p>
+			</a>
+			<a href="/examples/api" class="link-card">
+				<span class="link-prefix">[02]</span>
+				<h3>api_reference</h3>
+				<p>// Complete documentation</p>
+			</a>
+			<a
+				href="https://github.com/rakunlabs/kaykay"
+				target="_blank"
+				class="link-card"
+			>
+				<span class="link-prefix">[03]</span>
+				<h3>github_repo</h3>
+				<p>// Source code & issues</p>
+			</a>
+			<a
+				href="https://www.npmjs.com/package/kaykay"
+				target="_blank"
+				class="link-card"
+			>
+				<span class="link-prefix">[04]</span>
+				<h3>npm_package</h3>
+				<p>// Package registry</p>
+			</a>
+		</div>
+	</section>
+
+	<footer class="footer">
+		<p><span class="comment">/* MIT License */</span></p>
+	</footer>
 </div>
 
 <style>
-	.demo-container {
-		width: 100vw;
-		height: 100vh;
-		display: flex;
-		flex-direction: column;
-		color: white;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	.about-page {
+		max-width: 900px;
+		margin: 0 auto;
+		padding: 48px 32px;
+		color: #eb5425;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 	}
 
-	.demo-container.kaykay-light {
-		background: #f5f5f5;
-		color: #333;
+	/* Hero */
+	.hero {
+		text-align: center;
+		padding: 32px 0 48px;
 	}
 
-	.controls {
-		padding: 1rem;
-		background: #1a1a2e;
-		border-bottom: 1px solid #333;
+	.hero-logo {
+		width: 120px;
+		height: 120px;
+		margin-bottom: 16px;
+	}
+
+	.hero-logo-wrapper {
 		display: flex;
-		flex-wrap: wrap;
+		flex-direction: row;
+		gap: 24px;
 		align-items: center;
-		gap: 1rem;
+		justify-content: center;
 	}
 
-	.demo-container.kaykay-light .controls {
-		background: #fff;
-		border-bottom: 1px solid #ddd;
+	.hero h1 {
+		font-size: 4rem;
+		margin: 0 0 16px;
+		color: #eb5425;
+		letter-spacing: 4px;
 	}
 
-	.button-group {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.controls h1 {
-		margin: 0;
-		font-size: 1.5rem;
-		flex: 1;
-	}
-
-	.controls button {
-		padding: 0.5rem 1rem;
-		background: #4a9eff;
-		color: white;
-		border: none;
-		cursor: pointer;
-		font-size: 0.9rem;
-		transition: background 0.2s;
-	}
-
-	.controls button:hover {
-		background: #2d7fd3;
-	}
-
-	.controls button.danger {
-		background: #dc2626;
-	}
-
-	.controls button.danger:hover {
-		background: #b91c1c;
-	}
-
-	.controls button.theme-toggle {
-		background: #6b7280;
-	}
-
-	.controls button.theme-toggle:hover {
-		background: #4b5563;
-	}
-
-	.demo-container.kaykay-light .controls button.theme-toggle {
-		background: #374151;
-	}
-
-	.demo-container.kaykay-light .controls button.theme-toggle:hover {
-		background: #1f2937;
-	}
-
-	.hint {
-		margin: 0;
-		font-size: 0.85rem;
+	.tagline {
+		font-size: 1.1rem;
 		color: #888;
+		margin: 0 0 32px;
 	}
 
-	.demo-container.kaykay-light .hint {
+	.hero-actions {
+		display: flex;
+		gap: 16px;
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.btn {
+		padding: 14px 28px;
+		border: 1px solid #eb5425;
+		border-radius: 4px;
+		font-size: 0.9rem;
+		font-weight: 500;
+		font-family: inherit;
+		text-decoration: none;
+		transition: all 0.2s ease;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+	}
+
+	.btn-primary {
+		background: #eb5425;
+		color: #121217;
+	}
+
+	.btn-primary:hover {
+		background: #121217;
+		color: #eb5425;
+	}
+
+	.btn-secondary {
+		background: transparent;
+		color: #eb5425;
+	}
+
+	.btn-secondary:hover {
+		background: rgba(74, 158, 255, 0.1);
+	}
+
+	/* Sections */
+	section {
+		margin-bottom: 64px;
+	}
+
+	section h2 {
+		font-size: 1.5rem;
+		margin: 0 0 24px;
+		color: #eb5425;
+		font-weight: 400;
+		border-bottom: 1px dashed #333;
+		padding-bottom: 12px;
+	}
+
+	.section-prefix {
+		color: #666;
+		margin-right: 8px;
+	}
+
+	/* Code blocks */
+	.code-block {
+		background: #121217;
+		border: 1px solid #333;
+		border-radius: 0;
+		margin-bottom: 12px;
+		overflow: hidden;
+	}
+
+	.code-block.terminal {
+		border-color: #333;
+	}
+
+	.code-block.large {
+		margin-bottom: 24px;
+	}
+
+	.code-header {
+		padding: 8px 16px;
+		background: #1a1a1a;
+		border-bottom: 1px solid #333;
+		font-size: 0.85rem;
 		color: #666;
 	}
 
-	.canvas-wrapper {
-		flex: 1;
-		position: relative;
-		overflow: hidden;
+	.file-path {
+		color: #eb5425;
+	}
+
+	.code-tabs {
+		display: flex;
+		background: #1a1a1a;
+		border-bottom: 1px solid #333;
+	}
+
+	.tab {
+		padding: 10px 20px;
+		background: transparent;
+		border: none;
+		color: #666;
+		font-size: 0.85rem;
+		font-family: inherit;
+		cursor: pointer;
+		transition: all 0.15s ease;
+		border-bottom: 2px solid transparent;
+	}
+
+	.tab:hover {
+		color: #eb5425;
+	}
+
+	.tab.active {
+		color: #eb5425;
+		border-bottom-color: #eb5425;
+		background: rgba(74, 158, 255, 0.05);
+	}
+
+	.code-block pre {
+		margin: 0;
+		padding: 16px;
+		font-family: inherit;
+		font-size: 0.9rem;
+		color: #fff;
+		overflow-x: auto;
+	}
+
+	.code-block .output {
+		color: #fff;
+	}
+
+	/* Syntax highlighting */
+	.comment {
+		color: #666;
+	}
+	.keyword {
+		color: #ff79c6;
+	}
+	.string {
+		color: #f1fa8c;
+	}
+	.number {
+		color: #bd93f9;
+	}
+	.tag {
+		color: #ff79c6;
+	}
+	.attr {
+		color: #50fa7b;
+	}
+
+	/* Features */
+	.features-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 16px;
+	}
+
+	.feature {
+		background: #121217;
+		border: 1px solid #333;
+		border-radius: 4px;
+		padding: 20px;
+		transition: all 0.2s ease;
+	}
+
+	.feature:hover {
+		border-color: #eb5425;
+	}
+
+	.feature-header {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin-bottom: 8px;
+	}
+
+	.feature-icon {
+		color: #eb5425;
+		font-size: 0.9rem;
+	}
+
+	.feature h3 {
+		margin: 0;
+		font-size: 1rem;
+		color: #fff;
+		font-weight: 400;
+	}
+
+	.feature-desc {
+		margin: 0;
+		font-size: 0.85rem;
+		color: #666;
+	}
+
+	/* Links */
+	.links-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 16px;
+	}
+
+	.link-card {
+		display: block;
+		background: #121217;
+		border: 1px solid #333;
+		border-radius: 4px;
+		padding: 20px;
+		text-decoration: none;
+		color: inherit;
+		transition: all 0.2s ease;
+	}
+
+	.link-card:hover {
+		border-color: #eb5425;
+	}
+
+	.link-prefix {
+		color: #666;
+		font-size: 0.85rem;
+		display: block;
+		margin-bottom: 8px;
+	}
+
+	.link-card h3 {
+		margin: 0 0 4px;
+		font-size: 1rem;
+		color: #eb5425;
+		font-weight: 400;
+	}
+
+	.link-card p {
+		margin: 0;
+		font-size: 0.85rem;
+		color: #666;
+	}
+
+	/* Footer */
+	.footer {
+		text-align: center;
+		padding-top: 32px;
+		border-top: 1px dashed #333;
+	}
+
+	.footer p {
+		margin: 0;
+		color: #666;
+		font-size: 0.9rem;
+	}
+
+	/* Light mode */
+	:global(.kaykay-light) .about-page {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .hero h1 {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .tagline {
+		color: #666;
+	}
+
+	:global(.kaykay-light) .btn {
+		border-color: #eb5425;
+	}
+
+	:global(.kaykay-light) .btn-primary {
+		background: #eb5425;
+		color: #fff;
+	}
+
+	:global(.kaykay-light) .btn-primary:hover {
+		background: #fff;
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .btn-secondary {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .btn-secondary:hover {
+		background: rgba(37, 99, 235, 0.1);
+	}
+
+	:global(.kaykay-light) section h2 {
+		color: #eb5425;
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .code-block {
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .code-block.terminal {
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .code-header {
+		background: #e8e8e8;
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .code-tabs {
+		background: #e8e8e8;
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .tab:hover {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .tab.active {
+		color: #eb5425;
+		border-bottom-color: #eb5425;
+		background: rgba(37, 99, 235, 0.05);
+	}
+
+	:global(.kaykay-light) .code-block pre,
+	:global(.kaykay-light) .code-block .output {
+		color: #fff;
+	}
+
+	:global(.kaykay-light) .file-path {
+		color: #000;
+	}
+
+	/* Syntax highlighting for light mode */
+	:global(.kaykay-light) .comment {
+		color: #6b7280;
+	}
+	:global(.kaykay-light) .keyword {
+		color: #db2777;
+	}
+	:global(.kaykay-light) .string {
+		color: #ca8a04;
+	}
+	:global(.kaykay-light) .number {
+		color: #7c3aed;
+	}
+	:global(.kaykay-light) .tag {
+		color: #db2777;
+	}
+	:global(.kaykay-light) .attr {
+		color: #16a34a;
+	}
+
+	:global(.kaykay-light) .feature {
+		background: #fff;
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .feature:hover {
+		border-color: #eb5425;
+	}
+
+	:global(.kaykay-light) .feature-icon {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .feature h3 {
+		color: #333;
+	}
+
+	:global(.kaykay-light) .link-card {
+		background: #fff;
+		border-color: #ddd;
+	}
+
+	:global(.kaykay-light) .link-card:hover {
+		border-color: #eb5425;
+	}
+
+	:global(.kaykay-light) .link-card h3 {
+		color: #eb5425;
+	}
+
+	:global(.kaykay-light) .footer {
+		border-color: #ddd;
 	}
 </style>

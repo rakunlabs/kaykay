@@ -654,7 +654,7 @@
 	}
 
 	.kaykay-waypoint:hover {
-		fill: var(--kaykay-waypoint-hover-fill, #4a9eff);
+		fill: var(--kaykay-waypoint-hover-fill, #eb5425);
 		stroke: var(--kaykay-waypoint-hover-stroke, #2563eb);
 	}
 
@@ -666,7 +666,7 @@
 	}
 
 	.kaykay-edge.selected .kaykay-waypoint {
-		stroke: var(--kaykay-waypoint-selected-stroke, #4a9eff);
+		stroke: var(--kaykay-waypoint-selected-stroke, #eb5425);
 	}
 
 	.kaykay-edge-arrow-head {

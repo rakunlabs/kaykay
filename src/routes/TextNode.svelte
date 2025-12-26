@@ -10,7 +10,7 @@
   Custom node wrapper - can be styled however you want
   Handles must be placed inside to register with the flow
 -->
-<div class="text-node" style="background: {data.color || '#2a2a3e'}">
+<div class="text-node" style="background: {data.color || '#1f1f1f'}">
 	<div class="node-header">{data.label}</div>
 	
 	<!-- Input handle on the left side -->

@@ -286,7 +286,7 @@
 		--kaykay-group-bg: rgba(100, 100, 120, 0.15);
 		--kaykay-group-border: #777;
 		--kaykay-group-label-color: #aaa;
-		--kaykay-group-label-bg: #1a1a2e;
+		--kaykay-group-label-bg: #252422;
 		--kaykay-group-resize-handle: #777;
 		--kaykay-group-resize-handle-hover: #60a5fa;
 	}

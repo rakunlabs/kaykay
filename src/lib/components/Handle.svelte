@@ -294,7 +294,7 @@
 		--kaykay-handle-connecting-border: #f59e0b;
 		--kaykay-handle-letter-color: #333;
 		--kaykay-handle-label-color: #888;
-		--kaykay-handle-label-bg: #fff;
+		--kaykay-handle-label-bg: #ffffff9f;
 
 		position: absolute;
 		width: 12px;
@@ -325,7 +325,7 @@
 		--kaykay-handle-connecting-border: #fbbf24;
 		--kaykay-handle-letter-color: #333;
 		--kaykay-handle-label-color: #aaa;
-		--kaykay-handle-label-bg: #222;
+		--kaykay-handle-label-bg: #2222229f;
 	}
 
 	/* Position styles for standalone handles */

@@ -24,7 +24,7 @@
 
 <style>
 	.process-node {
-		background: #2a2a3e;
+		background: #1f1f1f;
 		border: 2px solid #444;
 		border-radius: 8px;
 		padding: 1rem;

@@ -12,7 +12,7 @@ import type {
 	FlowCallbacks,
 } from '../types/index.js';
 
-const FLOW_CONTEXT_KEY = Symbol('kaykay-flow');
+const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 
 // Flow state class using Svelte 5 runes
 export class FlowState {
@@ -36,8 +36,12 @@ export class FlowState {
 	// Draft connection state (while dragging)
 	draft_connection = $state<DraftConnection | null>(null);
 
+	// Canvas dimensions (set by Canvas component)
+	canvas_width = $state<number>(800);
+	canvas_height = $state<number>(600);
+
 	// Configuration
-	config: FlowConfig;
+	config = $state<FlowConfig>({});
 	callbacks: FlowCallbacks;
 
 	constructor(
@@ -506,6 +510,13 @@ export class FlowState {
 		this.setLocked(!this.locked);
 	}
 
+	// ============ Canvas Dimensions ============
+
+	setCanvasDimensions(width: number, height: number): void {
+		this.canvas_width = width;
+		this.canvas_height = height;
+	}
+
 	// ============ Viewport ============
 
 	setViewport(viewport: Viewport): void {
@@ -536,6 +547,83 @@ export class FlowState {
 		this.setViewport({
 			x: center.x - (center.x - this.viewport.x) * scale,
 			y: center.y - (center.y - this.viewport.y) * scale,
+			zoom: new_zoom,
+		});
+	}
+
+	// Zoom in by a fixed step (default 20%)
+	zoomIn(step: number = 0.2): void {
+		const new_zoom = Math.min(this.config.max_zoom!, this.viewport.zoom * (1 + step));
+		this.setViewport({
+			...this.viewport,
+			zoom: new_zoom,
+		});
+	}
+
+	// Zoom out by a fixed step (default 20%)
+	zoomOut(step: number = 0.2): void {
+		const new_zoom = Math.max(this.config.min_zoom!, this.viewport.zoom * (1 - step));
+		this.setViewport({
+			...this.viewport,
+			zoom: new_zoom,
+		});
+	}
+
+	// Reset zoom to 100%
+	resetZoom(): void {
+		this.setViewport({
+			...this.viewport,
+			zoom: 1,
+		});
+	}
+
+	// Set zoom to a specific level
+	setZoom(zoom: number): void {
+		const clamped_zoom = Math.max(this.config.min_zoom!, Math.min(this.config.max_zoom!, zoom));
+		this.setViewport({
+			...this.viewport,
+			zoom: clamped_zoom,
+		});
+	}
+
+	// Fit all nodes in view
+	fitView(padding: number = 50): void {
+		if (this.nodes.length === 0) {
+			this.resetZoom();
+			return;
+		}
+
+		// Calculate bounding box of all nodes
+		let min_x = Infinity;
+		let min_y = Infinity;
+		let max_x = -Infinity;
+		let max_y = -Infinity;
+
+		for (const node of this.nodes) {
+			const abs_pos = this.getAbsolutePosition(node.id);
+			min_x = Math.min(min_x, abs_pos.x);
+			min_y = Math.min(min_y, abs_pos.y);
+			max_x = Math.max(max_x, abs_pos.x + node.computed_width);
+			max_y = Math.max(max_y, abs_pos.y + node.computed_height);
+		}
+
+		// Use stored canvas dimensions
+		const canvas_width = this.canvas_width;
+		const canvas_height = this.canvas_height;
+
+		const content_width = max_x - min_x + padding * 2;
+		const content_height = max_y - min_y + padding * 2;
+
+		const zoom_x = canvas_width / content_width;
+		const zoom_y = canvas_height / content_height;
+		const new_zoom = Math.max(this.config.min_zoom!, Math.min(this.config.max_zoom!, Math.min(zoom_x, zoom_y, 1)));
+
+		const center_x = (min_x + max_x) / 2;
+		const center_y = (min_y + max_y) / 2;
+
+		this.setViewport({
+			x: canvas_width / 2 - center_x * new_zoom,
+			y: canvas_height / 2 - center_y * new_zoom,
 			zoom: new_zoom,
 		});
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
+	import { setContext, onMount } from 'svelte';
 	import type {
 		FlowNode,
 		FlowEdge,
@@ -60,6 +60,21 @@
 	let lastTouchCenter = $state<Position | null>(null);
 	let isTouchPanning = $state(false);
 	let touchStartPos = $state<Position | null>(null);
+
+	// Track canvas dimensions for fitView
+	onMount(() => {
+		const updateSize = () => {
+			if (containerEl) {
+				flow.setCanvasDimensions(containerEl.clientWidth, containerEl.clientHeight);
+			}
+		};
+		updateSize();
+
+		const resizeObserver = new ResizeObserver(updateSize);
+		resizeObserver.observe(containerEl);
+
+		return () => resizeObserver.disconnect();
+	});
 
 	// Handle mouse wheel for zooming
 	function handleWheel(e: WheelEvent) {
@@ -427,7 +442,7 @@
 	/* Dark mode - via class */
 	:global(.kaykay-dark) .kaykay-canvas,
 	.kaykay-canvas.kaykay-dark {
-		--kaykay-canvas-bg: #2a2a3a;
+		--kaykay-canvas-bg: #252422;
 		--kaykay-canvas-dot-rgb: 102, 102, 102;
 	}
 

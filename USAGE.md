@@ -6,10 +6,22 @@ This example demonstrates how to use the kaykay flow editor library in your Svel
 
 ```
 src/routes/
-├── +page.svelte       # Main demo page with Canvas setup
-├── TextNode.svelte    # Example custom node component
-├── ProcessNode.svelte # Example node with multiple inputs
-└── OutputNode.svelte  # Example terminal node
+├── +page.svelte           # Landing/About page
+├── +layout.svelte         # App layout with sidebar navigation
+├── playground/
+│   └── +page.svelte       # Interactive demo/playground
+├── examples/
+│   ├── getting-started/   # Getting started guide
+│   ├── basic-nodes/       # Basic node examples
+│   ├── connections/       # Edge/connection examples
+│   ├── groups/            # Group node examples
+│   ├── styling/           # Styling examples
+│   ├── touch/             # Touch support examples
+│   ├── api/               # API reference
+│   └── nodes/             # Shared custom node components
+├── TextNode.svelte        # Example custom node component
+├── ProcessNode.svelte     # Example node with multiple inputs
+└── OutputNode.svelte      # Example terminal node
 ```
 
 ## Creating Custom Nodes
@@ -92,7 +104,7 @@ kaykay provides a built-in `GroupNode` component for creating visual groups that
       position: { x: 50, y: 50 },
       width: 300,
       height: 200,
-      data: { label: 'My Group', color: '#4a9eff' }
+      data: { label: 'My Group', color: '#eb5425' }
     },
     {
       id: 'node-1',
@@ -196,8 +208,8 @@ Use global styles or scoped styles in your node components. Selected nodes autom
 
 ```css
 :global(.kaykay-node.selected .my-node) {
-  border-color: #4a9eff;
-  box-shadow: 0 0 0 2px #4a9eff;
+  border-color: #eb5425;
+  box-shadow: 0 0 0 2px #eb5425;
 }
 ```
 
@@ -290,7 +302,7 @@ Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. U
 
 ```css
 :root {
-  --kaykay-node-selected-outline: #4a9eff; /* Selection outline color */
+  --kaykay-node-selected-outline: #eb5425; /* Selection outline color */
 }
 ```
 
@@ -331,7 +343,7 @@ Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. U
 ```css
 :root {
   --kaykay-minimap-bg: rgba(0, 0, 0, 0.8);           /* Background color */
-  --kaykay-minimap-node: #4a9eff;                    /* Node color */
+  --kaykay-minimap-node: #eb5425;                    /* Node color */
   --kaykay-minimap-viewport: rgba(74, 158, 255, 0.3); /* Viewport indicator */
   --kaykay-minimap-border: rgba(255, 255, 255, 0.1); /* Border color */
   --kaykay-minimap-border-hover: rgba(255, 255, 255, 0.3); /* Border color on hover */
@@ -353,11 +365,11 @@ Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. U
 :root {
   --kaykay-waypoint-fill: #fff;            /* Waypoint fill color */
   --kaykay-waypoint-stroke: #888;          /* Waypoint border color */
-  --kaykay-waypoint-hover-fill: #4a9eff;   /* Waypoint fill on hover */
+  --kaykay-waypoint-hover-fill: #eb5425;   /* Waypoint fill on hover */
   --kaykay-waypoint-hover-stroke: #2563eb; /* Waypoint border on hover */
   --kaykay-waypoint-dragging-fill: #fbbf24; /* Waypoint fill while dragging */
   --kaykay-waypoint-dragging-stroke: #f59e0b; /* Waypoint border while dragging */
-  --kaykay-waypoint-selected-stroke: #4a9eff; /* Waypoint border when edge is selected */
+  --kaykay-waypoint-selected-stroke: #eb5425; /* Waypoint border when edge is selected */
 }
 ```
 
@@ -376,9 +388,9 @@ Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. U
   --kaykay-group-bg: rgba(100, 100, 120, 0.1);  /* Group background */
   --kaykay-group-border: #666;                   /* Group border color */
   --kaykay-group-label-color: #888;              /* Group label text color */
-  --kaykay-group-label-bg: #1a1a2e;              /* Group label background */
+  --kaykay-group-label-bg: #252422;              /* Group label background */
   --kaykay-group-resize-handle: #666;            /* Resize handle color */
-  --kaykay-group-resize-handle-hover: #4a9eff;   /* Resize handle hover color */
+  --kaykay-group-resize-handle-hover: #eb5425;   /* Resize handle hover color */
   --kaykay-group-menu-bg: #1e1e1e;               /* Context menu background */
   --kaykay-group-menu-border: #333;              /* Context menu border */
   --kaykay-group-menu-label: #888;               /* Context menu label color */
@@ -390,7 +402,7 @@ Note: Use `kaykay-dark` class on the canvas or a parent element for dark mode. U
 ```css
 :root {
   /* Canvas */
-  --kaykay-canvas-bg: #1a1a2e;
+  --kaykay-canvas-bg: #252422;
   --kaykay-canvas-dot-rgb: 80, 80, 120;
   
   /* Handles */

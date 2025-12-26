@@ -138,6 +138,11 @@
 				}
 			}
 
+			// If a group node was moved, update membership to capture/release nodes
+			if (hasMoved && node.type === 'group') {
+				flow.updateGroupMembership(node.id);
+			}
+
 			if (hasMoved) {
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
@@ -260,6 +265,11 @@
 				}
 			}
 
+			// If a group node was moved, update membership to capture/release nodes
+			if (hasMoved && node.type === 'group') {
+				flow.updateGroupMembership(node.id);
+			}
+
 			if (hasMoved) {
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
@@ -327,7 +337,7 @@
 
 	.kaykay-node.selected {
 		z-index: 10 !important;
-		outline: 2px solid var(--kaykay-node-selected-outline, #4a9eff);
+		outline: 2px solid var(--kaykay-node-selected-outline, #eb5425);
 	}
 
 	.kaykay-node.dragging {

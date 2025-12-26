@@ -1,4 +1,4 @@
-<img align="left" height="74" src="kaykay.png">
+<img align="left" height="74" src="static/kaykay.png">
 
 # kaykay
 
@@ -21,7 +21,7 @@ pnpm add kaykay
 
 ## Quick Start
 
-Check out the demo in `src/routes/+page.svelte` for a complete working example!
+Check out the [interactive playground](/playground) for a complete working example!
 
 ```svelte
 <script lang="ts">
@@ -49,12 +49,10 @@ pnpm install
 pnpm dev
 ```
 
-Then open http://localhost:5173 to see the interactive demo with:
-- Three types of custom nodes (Text, Process, Output)
-- Draggable connections between nodes
-- Pan/zoom controls
-- Node selection and deletion
-- JSON export functionality
+Then open http://localhost:5173 to see:
+- **Landing page** at `/` with installation and feature overview
+- **Interactive playground** at `/playground` with custom nodes and full demo
+- **Documentation** with getting started guide, examples, and API reference
 
 ## Port Types
 
