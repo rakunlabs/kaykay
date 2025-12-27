@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { base } from '$app/paths';
+	import { resolve, asset } from '$app/paths';
 
 	interface Props {
 		children: Snippet;
@@ -10,7 +10,7 @@
 
 	// Sidebar state
 	let sidebarOpen = $state(true);
-	let theme: 'light' | 'dark' = $state('dark');
+	let theme: 'light' | 'dark' = $state('light');
 
 	function toggleTheme() {
 		theme = theme === 'dark' ? 'light' : 'dark';
@@ -21,7 +21,7 @@
 	}
 
 	// Navigation items
-	const navItems = [
+	const navItems: { href: `/${string}`, label: string, icon: string }[] = [
 		{ href: '/playground', label: 'Playground', icon: '⚡' },
 		{ href: '/examples/getting-started', label: 'Getting Started', icon: '🚀' },
 		{ href: '/examples/basic-nodes', label: 'Basic Nodes', icon: '📦' },
@@ -36,8 +36,8 @@
 <div class="app-container" class:kaykay-light={theme === 'light'} class:kaykay-dark={theme === 'dark'}>
 	<!-- Sidebar -->
 	<aside class="sidebar" class:collapsed={!sidebarOpen}>
-		<a href="{base}/" class="sidebar-header">
-			<img src="{base}/kaykay.svg" alt="kaykay logo" class="logo" />
+		<a href={resolve('/')} class="sidebar-header">
+			<img src={asset('/kaykay.svg')} alt="kaykay logo" class="logo" />
 			{#if sidebarOpen}
 				<div class="brand">
 					<h1>kaykay</h1>
@@ -48,7 +48,7 @@
 
 		<nav class="sidebar-nav">
 			{#each navItems as item}
-				<a href="{base}{item.href}" class="nav-item">
+				<a href={resolve(item.href as any)} class="nav-item">
 					<span class="nav-icon">{item.icon}</span>
 					{#if sidebarOpen}
 						<span class="nav-label">{item.label}</span>
@@ -161,6 +161,10 @@
 
 	:global(.kaykay-dark) .logo {
 		filter: invert(1);
+	}
+
+	.collapsed .logo {
+		width: 32px;
 	}
 
 	.brand h1 {

@@ -1,27 +1,26 @@
 <script lang="ts">
-	// About/Landing page - Hacker Theme
-	import { base } from '$app/paths';
+	// About/Landing page
+	import { resolve, asset } from '$app/paths';
 	
-	let activeTab: "npm" | "pnpm" | "yarn" = $state("npm");
+	let activeTab: "npm" | "pnpm" = $state("pnpm");
 
 	const installCommands = {
 		npm: "npm install kaykay",
 		pnpm: "pnpm add kaykay",
-		yarn: "yarn add kaykay",
 	};
 </script>
 
 <div class="about-page">
 	<header class="hero">
 		<span class="hero-logo-wrapper">
-			<img src="{base}/kaykay.svg" alt="kaykay logo" class="hero-logo" />
+			<img src={asset('/kaykay.svg')} alt="kaykay logo" class="hero-logo" />
 			<h1>kaykay</h1>
 		</span>
 
 		<p class="tagline">A modern, lightweight flow editor for Svelte 5</p>
 		<div class="hero-actions">
-			<a href="{base}/playground" class="btn btn-primary">[ENTER] Playground</a>
-			<a href="{base}/examples/getting-started" class="btn btn-secondary"
+			<a href={resolve('/playground')} class="btn btn-primary">[ENTER] Playground</a>
+			<a href={resolve('/examples/getting-started')} class="btn btn-secondary"
 				>[DOCS] Get Started</a
 			>
 		</div>
@@ -33,18 +32,13 @@
 			<div class="code-tabs">
 				<button
 					class="tab"
-					class:active={activeTab === "npm"}
-					onclick={() => (activeTab = "npm")}>npm</button
-				>
-				<button
-					class="tab"
 					class:active={activeTab === "pnpm"}
 					onclick={() => (activeTab = "pnpm")}>pnpm</button
 				>
 				<button
 					class="tab"
-					class:active={activeTab === "yarn"}
-					onclick={() => (activeTab = "yarn")}>yarn</button
+					class:active={activeTab === "npm"}
+					onclick={() => (activeTab = "npm")}>npm</button
 				>
 			</div>
 			<pre><span style="user-select: none;">{'$ '}</span><span class="output">{installCommands[activeTab]}</span></pre>
@@ -162,12 +156,12 @@
 	<section class="links-section">
 		<h2><span class="section-prefix">#</span> Resources</h2>
 		<div class="links-grid">
-			<a href="{base}/examples/getting-started" class="link-card">
+			<a href={resolve('/examples/getting-started')} class="link-card">
 				<span class="link-prefix">[01]</span>
 				<h3>getting_started</h3>
 				<p>// Learn the basics</p>
 			</a>
-			<a href="{base}/examples/api" class="link-card">
+			<a href={resolve('/examples/api')} class="link-card">
 				<span class="link-prefix">[02]</span>
 				<h3>api_reference</h3>
 				<p>// Complete documentation</p>
