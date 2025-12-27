@@ -232,10 +232,10 @@
 			return;
 		}
 
-		// Paste
+		// Paste - try system clipboard first for cross-tab support
 		if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
 			e.preventDefault();
-			flow.paste(mouseCanvasPos);
+			handlePaste();
 			return;
 		}
 
@@ -257,6 +257,25 @@
 				flow.cancelSelectionRect();
 			}
 		}
+	}
+
+	// Handle paste from system clipboard or internal clipboard
+	async function handlePaste() {
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text) {
+				const parsed = JSON.parse(text);
+				// Check if it's kaykay clipboard data
+				if (parsed.kaykay && parsed.nodes && parsed.edges) {
+					flow.paste(mouseCanvasPos, { nodes: parsed.nodes, edges: parsed.edges });
+					return;
+				}
+			}
+		} catch {
+			// Clipboard read failed or not valid JSON - fall back to internal clipboard
+		}
+		// Fall back to internal clipboard
+		flow.paste(mouseCanvasPos);
 	}
 
 	// Helper to calculate distance between two touch points

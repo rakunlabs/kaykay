@@ -226,7 +226,9 @@
 			<strong>Controls:</strong> Pan: Click & drag | Zoom: Mouse wheel | 
 			Connect: Drag from output to input | Delete: Select & press Delete/Backspace |
 			Waypoints: Ctrl+click edge to add, Ctrl+click waypoint to delete |
-			Groups: Drag nodes into/out of groups
+			Groups: Drag nodes into/out of groups |
+			Selection: Ctrl+drag to select multiple, Ctrl+A to select all |
+			Copy/Paste: Ctrl+C/V (works across browser tabs!)
 		</p>
 	</div>
 	

@@ -892,19 +892,31 @@ export class FlowState {
 			}));
 
 		this.clipboard = { nodes: copied_nodes, edges: copied_edges };
+
+		// Also write to system clipboard for cross-tab/cross-browser paste
+		const clipboard_data = {
+			kaykay: true, // Marker to identify kaykay clipboard data
+			nodes: copied_nodes,
+			edges: copied_edges,
+		};
+		navigator.clipboard.writeText(JSON.stringify(clipboard_data)).catch((err) => {
+			console.warn('Failed to write to system clipboard:', err);
+		});
 	}
 
-	paste(position?: Position): void {
-		if (!this.clipboard || this.clipboard.nodes.length === 0) return;
+	// Paste from internal clipboard or provided data
+	paste(position?: Position, clipboard_data?: { nodes: FlowNode[]; edges: FlowEdge[] }): void {
+		const data = clipboard_data ?? this.clipboard;
+		if (!data || data.nodes.length === 0) return;
 		if (this.locked) return;
 
 		const paste_pos = position ?? { x: 100, y: 100 };
 
 		// Build a set of node IDs in clipboard to check parent relationships
-		const clipboard_ids = new Set(this.clipboard.nodes.map((n) => n.id));
+		const clipboard_ids = new Set(data.nodes.map((n) => n.id));
 
 		// Find top-level nodes (nodes whose parent is not in the clipboard)
-		const top_level_nodes = this.clipboard.nodes.filter(
+		const top_level_nodes = data.nodes.filter(
 			(n) => !n.parent_id || !clipboard_ids.has(n.parent_id)
 		);
 
@@ -933,7 +945,7 @@ export class FlowState {
 		const id_map = new Map<string, string>();
 
 		// Create new nodes with new IDs
-		const new_nodes: FlowNode[] = this.clipboard.nodes.map((node) => {
+		const new_nodes: FlowNode[] = data.nodes.map((node) => {
 			const new_id = this.generateNodeId();
 			id_map.set(node.id, new_id);
 
@@ -956,15 +968,15 @@ export class FlowState {
 		});
 
 		// Update parent_id for nodes whose parent was also copied
-		for (let i = 0; i < this.clipboard.nodes.length; i++) {
-			const original_parent_id = this.clipboard.nodes[i].parent_id;
+		for (let i = 0; i < data.nodes.length; i++) {
+			const original_parent_id = data.nodes[i].parent_id;
 			if (original_parent_id && id_map.has(original_parent_id)) {
 				new_nodes[i].parent_id = id_map.get(original_parent_id);
 			}
 		}
 
 		// Create new edges with updated node references
-		const new_edges: FlowEdge[] = this.clipboard.edges.map((edge) => {
+		const new_edges: FlowEdge[] = data.edges.map((edge) => {
 			const new_source = id_map.get(edge.source)!;
 			const new_target = id_map.get(edge.target)!;
 			return {
