@@ -526,8 +526,20 @@ export class FlowState {
 				z_index: n.z_index,
 			}));
 
-		const selected_edges = this.edges
-			.filter((e) => this.selected_edge_ids.has(e.id))
+		// Get explicitly selected edges
+		const explicitly_selected_edges = this.edges
+			.filter((e) => this.selected_edge_ids.has(e.id));
+
+		// Get edges between selected nodes (not already selected)
+		const edges_between_selected = this.edges
+			.filter((e) => 
+				this.selected_node_ids.has(e.source) && 
+				this.selected_node_ids.has(e.target) &&
+				!this.selected_edge_ids.has(e.id)
+			);
+
+		// Combine and map both
+		const all_edges = [...explicitly_selected_edges, ...edges_between_selected]
 			.map((e) => ({
 				id: e.id,
 				source: e.source,
@@ -544,7 +556,7 @@ export class FlowState {
 
 		const output = {
 			nodes: selected_nodes,
-			edges: selected_edges,
+			edges: all_edges,
 		};
 
 		console.log('Selected nodes and edges:');

@@ -159,6 +159,16 @@
 		return !flow.canConnectPorts(flow.draft_connection.source_port, port, accept);
 	});
 
+	// Check if this output handle should be disabled (when a draft connection is active)
+	const is_output_disabled = $derived.by(() => {
+		if (!flow.draft_connection) return false;
+		if (type !== 'output') return false;
+		// The source handle itself is not disabled (it's "connecting")
+		if (flow.draft_connection.source_node_id === node_id && 
+			flow.draft_connection.source_handle_id === id) return false;
+		return true;
+	});
+
 	function handleMouseDown(e: MouseEvent) {
 		if (type !== 'output') return;
 		if (flow.locked) return;
@@ -249,6 +259,7 @@
 	class="kaykay-handle kaykay-handle-{type} kaykay-handle-{effectivePosition} {className}"
 	class:can-connect={can_accept_connection}
 	class:incompatible={is_incompatible}
+	class:output-disabled={is_output_disabled}
 	class:locked={flow.locked}
 	class:in-group={isInGroup}
 	class:connecting={flow.draft_connection &&
@@ -383,6 +394,13 @@
 		background: var(--kaykay-handle-incompatible-bg);
 		border-color: var(--kaykay-handle-incompatible-border);
 		opacity: 0.5;
+	}
+
+	.kaykay-handle.output-disabled {
+		background: var(--kaykay-handle-incompatible-bg);
+		border-color: var(--kaykay-handle-incompatible-border);
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.kaykay-handle.connecting {
