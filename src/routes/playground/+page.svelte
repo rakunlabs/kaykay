@@ -7,71 +7,143 @@
 	import GroupNode from '../../lib/components/GroupNode.svelte';
 	import Minimap from '../../lib/components/Minimap.svelte';
 	import Controls from '../../lib/components/Controls.svelte';
+	// Additional node types
+	import LabeledNode from '../examples/nodes/LabeledNode.svelte';
+	import DataSourceNode from '../examples/nodes/DataSourceNode.svelte';
+	import InputNode from '../examples/nodes/InputNode.svelte';
+	import MultiHandleNode from '../examples/nodes/MultiHandleNode.svelte';
 
 	// Reference to canvas component
 	let canvasRef: ReturnType<typeof Canvas> | undefined;
 
-	// Define initial nodes
+	// Define initial nodes with diverse node types
 	let nodes: FlowNode[] = $state([
+		// Input group with various source nodes
 		{
 			id: 'group-1',
 			type: 'group',
 			position: { x: 40, y: 40 },
-			width: 280,
-			height: 280,
-			data: { label: 'Inputs', color: '#eb5425' }
+			width: 300,
+			height: 350,
+			data: { label: 'Data Sources', color: '#22c55e' }
 		},
 		{
 			id: 'node-1',
-			type: 'text',
-			position: { x: 60, y: 60 },
-			data: { label: 'Input A', color: '#eb5425' },
+			type: 'input',
+			position: { x: 30, y: 50 },
+			data: { label: 'Text Input' },
 			parent_id: 'group-1'
 		},
 		{
 			id: 'node-2',
-			type: 'text',
-			position: { x: 60, y: 160 },
-			data: { label: 'Input B', color: '#ff6b6b' },
+			type: 'input',
+			position: { x: 30, y: 120 },
+			data: { label: 'Number Input' },
 			parent_id: 'group-1'
 		},
 		{
 			id: 'node-3',
-			type: 'process',
-			position: { x: 400, y: 140 },
-			data: { operation: 'Merge', description: 'Combines two inputs' }
+			type: 'datasource',
+			position: { x: 30, y: 190 },
+			data: { label: 'API Data' },
+			parent_id: 'group-1'
 		},
+		// Processing nodes
 		{
 			id: 'node-4',
+			type: 'labeled',
+			position: { x: 420, y: 60 },
+			data: { label: 'Transform' }
+		},
+		{
+			id: 'node-5',
+			type: 'process',
+			position: { x: 420, y: 200 },
+			data: { operation: 'Merge', description: 'Combines inputs' }
+		},
+		{
+			id: 'node-6',
+			type: 'multihandle',
+			position: { x: 420, y: 340 },
+			data: { label: 'Aggregator' }
+		},
+		// Output group
+		{
+			id: 'group-2',
+			type: 'group',
+			position: { x: 700, y: 100 },
+			width: 280,
+			height: 280,
+			data: { label: 'Outputs', color: '#8b5cf6' }
+		},
+		{
+			id: 'node-7',
 			type: 'output',
-			position: { x: 640, y: 160 },
-			data: { title: 'Result' }
+			position: { x: 30, y: 50 },
+			data: { title: 'Result A' },
+			parent_id: 'group-2'
+		},
+		{
+			id: 'node-8',
+			type: 'output',
+			position: { x: 30, y: 150 },
+			data: { title: 'Result B' },
+			parent_id: 'group-2'
 		}
 	]);
 
-	// Define initial edges
+	// Define initial edges connecting the nodes
 	let edges: FlowEdge[] = $state([
+		// Input to Transform (labeled node)
 		{
 			id: 'edge-1',
 			source: 'node-1',
 			source_handle: 'out',
-			target: 'node-3',
-			target_handle: 'input-1',
+			target: 'node-4',
+			target_handle: 'text',
 			type: 'bezier'
 		},
 		{
 			id: 'edge-2',
 			source: 'node-2',
 			source_handle: 'out',
-			target: 'node-3',
-			target_handle: 'input-2',
+			target: 'node-4',
+			target_handle: 'number',
 			type: 'bezier'
 		},
+		// Transform to Aggregator
 		{
-			id: 'edge-3',
-			source: 'node-3',
+			id: 'edge-5',
+			source: 'node-4',
+			source_handle: 'out',
+			target: 'node-6',
+			target_handle: 'in-1',
+			type: 'bezier'
+		},
+		// Process to Aggregator
+		{
+			id: 'edge-6',
+			source: 'node-5',
 			source_handle: 'output',
-			target: 'node-4',
+			target: 'node-6',
+			target_handle: 'in-2',
+			type: 'bezier'
+		},
+		// Aggregator to Output
+		{
+			id: 'edge-7',
+			source: 'node-6',
+			source_handle: 'out',
+			target: 'node-7',
+			target_handle: 'in',
+			type: 'bezier'
+		},
+		// Transform directly to second output
+		{
+			id: 'edge-8',
+			source: 'node-4',
+			source_handle: 'out',
+			target: 'node-8',
 			target_handle: 'in',
 			type: 'bezier'
 		}
@@ -82,8 +154,24 @@
 		text: TextNode,
 		process: ProcessNode,
 		output: OutputNode,
-		group: GroupNode
+		group: GroupNode,
+		labeled: LabeledNode,
+		datasource: DataSourceNode,
+		input: InputNode,
+		multihandle: MultiHandleNode
 	};
+
+	// Available node types for cycling when adding new nodes
+	const addableNodeTypes = [
+		{ type: 'text', data: (n: number) => ({ label: `Text ${n}`, color: '#eb5425' }) },
+		{ type: 'input', data: (n: number) => ({ label: `Input ${n}` }) },
+		{ type: 'labeled', data: (n: number) => ({ label: `Labeled ${n}` }) },
+		{ type: 'datasource', data: (n: number) => ({ label: `Source ${n}` }) },
+		{ type: 'process', data: (n: number) => ({ operation: `Process ${n}`, description: 'Custom process' }) },
+		{ type: 'multihandle', data: (n: number) => ({ label: `Multi ${n}` }) },
+		{ type: 'output', data: (n: number) => ({ title: `Output ${n}` }) }
+	];
+	let nodeTypeIndex = 0;
 
 	// Canvas configuration
 	const config = {
@@ -108,18 +196,24 @@
 		}
 	};
 
-	// Add new node function
+	// Add new node function - cycles through different node types
 	function addNode() {
 		const flow = canvasRef?.getFlow();
 		if (!flow) return;
 		
+		const nodeConfig = addableNodeTypes[nodeTypeIndex];
+		const nodeCount = flow.nodes.filter(n => n.type === nodeConfig.type).length + 1;
+		
 		const newNode: FlowNode = {
-			id: `node-${Date.now()}`,
-			type: 'text',
-			position: { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 },
-			data: { label: `Node ${flow.nodes.length + 1}`, color: '#22c55e' }
+			id: '',  // Auto-generate ID
+			type: nodeConfig.type,
+			position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 300 },
+			data: nodeConfig.data(nodeCount)
 		};
 		flow.addNode(newNode);
+		
+		// Cycle to next node type
+		nodeTypeIndex = (nodeTypeIndex + 1) % addableNodeTypes.length;
 	}
 
 	// Add new group function

@@ -246,6 +246,13 @@
 			return;
 		}
 
+		// Log selected nodes and edges as JSON
+		if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+			e.preventDefault();
+			flow.logSelected();
+			return;
+		}
+
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			flow.deleteSelected();
 		}

@@ -511,6 +511,46 @@ export class FlowState {
 		this.callbacks.on_delete?.(node_ids, edge_ids);
 	}
 
+	// Log selected nodes and edges as JSON to console
+	logSelected(): void {
+		const selected_nodes = this.nodes
+			.filter((n) => this.selected_node_ids.has(n.id))
+			.map((n) => ({
+				id: n.id,
+				type: n.type,
+				position: { ...n.position },
+				data: { ...n.data },
+				width: n.width,
+				height: n.height,
+				parent_id: n.parent_id,
+				z_index: n.z_index,
+			}));
+
+		const selected_edges = this.edges
+			.filter((e) => this.selected_edge_ids.has(e.id))
+			.map((e) => ({
+				id: e.id,
+				source: e.source,
+				source_handle: e.source_handle,
+				target: e.target,
+				target_handle: e.target_handle,
+				type: e.type,
+				label: e.label,
+				waypoints: e.waypoints,
+				style: e.style,
+				animated: e.animated,
+				color: e.color,
+			}));
+
+		const output = {
+			nodes: selected_nodes,
+			edges: selected_edges,
+		};
+
+		console.log('Selected nodes and edges:');
+		console.log(JSON.stringify(output, null, 2));
+	}
+
 	// ============ Lock State ============
 
 	get locked(): boolean {
