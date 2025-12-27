@@ -36,6 +36,15 @@ export class FlowState {
 	// Draft connection state (while dragging)
 	draft_connection = $state<DraftConnection | null>(null);
 
+	// Selection rectangle state (for Ctrl+drag selection)
+	selection_rect = $state<{ start: Position; end: Position } | null>(null);
+
+	// Clipboard state (for copy/paste)
+	clipboard = $state<{ nodes: FlowNode[]; edges: FlowEdge[] } | null>(null);
+
+	// Auto-incrementing node ID counter
+	private next_node_id = 1;
+
 	// Canvas dimensions (set by Canvas component)
 	canvas_width = $state<number>(800);
 	canvas_height = $state<number>(600);
@@ -71,18 +80,24 @@ export class FlowState {
 		}));
 
 		this.edges = [...initial_edges];
+
+		// Initialize next_node_id based on existing nodes
+		this.initializeNextNodeId();
 	}
 
 	// ============ Node Operations ============
 
-	addNode(node: FlowNode): void {
+	addNode(node: FlowNode): string {
+		const node_id = node.id || this.generateNodeId();
 		const node_state: NodeState = {
 			...node,
+			id: node_id,
 			handles: new Map(),
 			computed_width: node.width ?? 0,
 			computed_height: node.height ?? 0,
 		};
 		this.nodes.push(node_state);
+		return node_id;
 	}
 
 	removeNode(node_id: string): void {
@@ -727,6 +742,255 @@ export class FlowState {
 		}));
 		this.edges = [...flow.edges];
 		this.clearSelection();
+		// Re-initialize next_node_id based on loaded nodes
+		this.initializeNextNodeId();
+	}
+
+	// ============ Node ID Generation ============
+
+	private initializeNextNodeId(): void {
+		let max_id = 0;
+		for (const node of this.nodes) {
+			const num = parseInt(node.id, 10);
+			if (!isNaN(num) && num > max_id) {
+				max_id = num;
+			}
+		}
+		this.next_node_id = max_id + 1;
+	}
+
+	generateNodeId(): string {
+		// Find next ID that doesn't exist
+		while (this.nodes.some((n) => n.id === String(this.next_node_id))) {
+			this.next_node_id++;
+		}
+		return String(this.next_node_id++);
+	}
+
+	// ============ Selection Rectangle ============
+
+	startSelectionRect(start: Position): void {
+		this.selection_rect = { start, end: start };
+	}
+
+	updateSelectionRect(end: Position): void {
+		if (this.selection_rect) {
+			this.selection_rect = { ...this.selection_rect, end };
+		}
+	}
+
+	finishSelectionRect(): void {
+		if (!this.selection_rect) return;
+
+		const rect = this.getNormalizedRect(this.selection_rect);
+		const nodes_in_rect = this.getNodesInRect(rect);
+
+		// Toggle selection for nodes in rectangle
+		const new_selected = new Set(this.selected_node_ids);
+		for (const node of nodes_in_rect) {
+			if (new_selected.has(node.id)) {
+				new_selected.delete(node.id); // Unselect if already selected
+			} else {
+				new_selected.add(node.id); // Select if not selected
+			}
+		}
+		this.selected_node_ids = new_selected;
+		this.selection_rect = null;
+	}
+
+	cancelSelectionRect(): void {
+		this.selection_rect = null;
+	}
+
+	private getNormalizedRect(rect: { start: Position; end: Position }): {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} {
+		return {
+			x: Math.min(rect.start.x, rect.end.x),
+			y: Math.min(rect.start.y, rect.end.y),
+			width: Math.abs(rect.end.x - rect.start.x),
+			height: Math.abs(rect.end.y - rect.start.y),
+		};
+	}
+
+	private getNodesInRect(rect: { x: number; y: number; width: number; height: number }): NodeState[] {
+		return this.nodes.filter((node) => {
+			const node_pos = this.getAbsolutePosition(node.id);
+			const node_right = node_pos.x + node.computed_width;
+			const node_bottom = node_pos.y + node.computed_height;
+			const rect_right = rect.x + rect.width;
+			const rect_bottom = rect.y + rect.height;
+
+			// Check intersection (node overlaps with rectangle)
+			return !(
+				node_right < rect.x ||
+				node_pos.x > rect_right ||
+				node_bottom < rect.y ||
+				node_pos.y > rect_bottom
+			);
+		});
+	}
+
+	// ============ Copy/Paste ============
+
+	// Get all descendant node IDs of a node (recursive)
+	private getAllDescendantIds(node_id: string): string[] {
+		const descendants: string[] = [];
+		const children = this.getChildNodes(node_id);
+		for (const child of children) {
+			descendants.push(child.id);
+			descendants.push(...this.getAllDescendantIds(child.id));
+		}
+		return descendants;
+	}
+
+	copySelected(): void {
+		if (this.selected_node_ids.size === 0) return;
+
+		// Expand selection to include all children of selected groups
+		const expanded_ids = new Set(this.selected_node_ids);
+		for (const node_id of this.selected_node_ids) {
+			const node = this.getNode(node_id);
+			if (node?.type === 'group') {
+				const descendants = this.getAllDescendantIds(node_id);
+				descendants.forEach((id) => expanded_ids.add(id));
+			}
+		}
+
+		// Copy selected nodes (serialize to plain objects)
+		const copied_nodes: FlowNode[] = this.nodes
+			.filter((n) => expanded_ids.has(n.id))
+			.map((n) => ({
+				id: n.id,
+				type: n.type,
+				position: { ...n.position },
+				data: { ...n.data },
+				width: n.width,
+				height: n.height,
+				parent_id: n.parent_id,
+				z_index: n.z_index,
+			}));
+
+		// Copy edges where BOTH source and target are in expanded selection
+		const copied_edges: FlowEdge[] = this.edges
+			.filter((e) => expanded_ids.has(e.source) && expanded_ids.has(e.target))
+			.map((e) => ({
+				id: e.id,
+				source: e.source,
+				source_handle: e.source_handle,
+				target: e.target,
+				target_handle: e.target_handle,
+				type: e.type,
+				label: e.label,
+				waypoints: e.waypoints?.map((wp) => ({ ...wp })),
+				style: e.style,
+				animated: e.animated,
+				color: e.color,
+			}));
+
+		this.clipboard = { nodes: copied_nodes, edges: copied_edges };
+	}
+
+	paste(position?: Position): void {
+		if (!this.clipboard || this.clipboard.nodes.length === 0) return;
+		if (this.locked) return;
+
+		const paste_pos = position ?? { x: 100, y: 100 };
+
+		// Build a set of node IDs in clipboard to check parent relationships
+		const clipboard_ids = new Set(this.clipboard.nodes.map((n) => n.id));
+
+		// Find top-level nodes (nodes whose parent is not in the clipboard)
+		const top_level_nodes = this.clipboard.nodes.filter(
+			(n) => !n.parent_id || !clipboard_ids.has(n.parent_id)
+		);
+
+		// Calculate bounding box using only top-level nodes (they have absolute positions)
+		let min_x = Infinity;
+		let min_y = Infinity;
+		let max_x = -Infinity;
+		let max_y = -Infinity;
+
+		for (const node of top_level_nodes) {
+			min_x = Math.min(min_x, node.position.x);
+			min_y = Math.min(min_y, node.position.y);
+			max_x = Math.max(max_x, node.position.x);
+			max_y = Math.max(max_y, node.position.y);
+		}
+
+		// Calculate offset from center of top-level nodes to paste position
+		const center_x = (min_x + max_x) / 2;
+		const center_y = (min_y + max_y) / 2;
+		const offset = {
+			x: paste_pos.x - center_x,
+			y: paste_pos.y - center_y,
+		};
+
+		// Map old IDs to new IDs
+		const id_map = new Map<string, string>();
+
+		// Create new nodes with new IDs
+		const new_nodes: FlowNode[] = this.clipboard.nodes.map((node) => {
+			const new_id = this.generateNodeId();
+			id_map.set(node.id, new_id);
+
+			// Check if this node's parent is in the clipboard
+			const parent_in_clipboard = node.parent_id && clipboard_ids.has(node.parent_id);
+
+			return {
+				...node,
+				id: new_id,
+				position: parent_in_clipboard
+					? { ...node.position } // Keep relative position for child nodes
+					: {
+							// Apply offset only to top-level nodes
+							x: node.position.x + offset.x,
+							y: node.position.y + offset.y,
+						},
+				// Clear parent_id for now (will be set later if parent was copied)
+				parent_id: undefined,
+			};
+		});
+
+		// Update parent_id for nodes whose parent was also copied
+		for (let i = 0; i < this.clipboard.nodes.length; i++) {
+			const original_parent_id = this.clipboard.nodes[i].parent_id;
+			if (original_parent_id && id_map.has(original_parent_id)) {
+				new_nodes[i].parent_id = id_map.get(original_parent_id);
+			}
+		}
+
+		// Create new edges with updated node references
+		const new_edges: FlowEdge[] = this.clipboard.edges.map((edge) => {
+			const new_source = id_map.get(edge.source)!;
+			const new_target = id_map.get(edge.target)!;
+			return {
+				...edge,
+				id: `e-${new_source}-${edge.source_handle}-${new_target}-${edge.target_handle}`,
+				source: new_source,
+				target: new_target,
+				type: edge.type ?? this.config.default_edge_type,
+				waypoints: edge.waypoints?.map((wp) => ({
+					x: wp.x + offset.x,
+					y: wp.y + offset.y,
+				})),
+			};
+		});
+
+		// Add nodes and edges
+		// Note: We add edges directly to the array instead of using addEdge()
+		// because addEdge() validates connections via canConnect(), which requires
+		// handles to be registered. But handles are registered when Handle components
+		// mount, which happens after paste() completes.
+		new_nodes.forEach((node) => this.addNode(node));
+		this.edges.push(...new_edges);
+
+		// Select the newly pasted nodes
+		this.selected_node_ids = new Set(new_nodes.map((n) => n.id));
+		this.selected_edge_ids = new Set();
 	}
 }
 

@@ -52,7 +52,9 @@
 
 	let containerEl: HTMLDivElement;
 	let isPanning = $state(false);
+	let isSelecting = $state(false);
 	let lastMousePos = $state<Position | null>(null);
+	let mouseCanvasPos = $state<Position>({ x: 0, y: 0 });
 	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
 	// Touch state for pinch-to-zoom and panning
@@ -101,6 +103,19 @@
 			connectionDragDistance = 0;
 			return;
 		}
+
+		// Ctrl + left click on background → start selection rectangle
+		if (e.button === 0 && (e.ctrlKey || e.metaKey) && !isOnNode && !isOnHandle && !isOnEdge) {
+			e.preventDefault();
+			isSelecting = true;
+			const rect = containerEl.getBoundingClientRect();
+			const canvas_pos = flow.screenToCanvas({
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top,
+			});
+			flow.startSelectionRect(canvas_pos);
+			return;
+		}
 		
 		// Only pan on middle mouse or when clicking on canvas background (not nodes/handles/edges)
 		if (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge)) {
@@ -115,6 +130,21 @@
 
 	// Handle mouse move
 	function handleMouseMove(e: MouseEvent) {
+		// Always track mouse position in canvas coordinates for paste
+		if (containerEl) {
+			const rect = containerEl.getBoundingClientRect();
+			mouseCanvasPos = flow.screenToCanvas({
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top,
+			});
+		}
+
+		// Handle selection rectangle
+		if (isSelecting && flow.selection_rect) {
+			flow.updateSelectionRect(mouseCanvasPos);
+			return;
+		}
+
 		if (isPanning && lastMousePos) {
 			const dx = e.clientX - lastMousePos.x;
 			const dy = e.clientY - lastMousePos.y;
@@ -142,6 +172,13 @@
 
 	// Handle mouse up
 	function handleMouseUp(e: MouseEvent) {
+		// Finish selection rectangle
+		if (isSelecting) {
+			isSelecting = false;
+			flow.finishSelectionRect();
+			return;
+		}
+
 		isPanning = false;
 		lastMousePos = null;
 
@@ -177,19 +214,48 @@
 	function handleMouseLeave() {
 		isPanning = false;
 		lastMousePos = null;
+		if (isSelecting) {
+			isSelecting = false;
+			flow.cancelSelectionRect();
+		}
 		if (flow.draft_connection) {
 			flow.cancelConnection();
 		}
 	}
 
-	// Handle keydown for delete
+	// Handle keydown for delete, copy, paste
 	function handleKeyDown(e: KeyboardEvent) {
+		// Copy
+		if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+			e.preventDefault();
+			flow.copySelected();
+			return;
+		}
+
+		// Paste
+		if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+			e.preventDefault();
+			flow.paste(mouseCanvasPos);
+			return;
+		}
+
+		// Select all
+		if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+			e.preventDefault();
+			flow.selected_node_ids = new Set(flow.nodes.map((n) => n.id));
+			return;
+		}
+
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			flow.deleteSelected();
 		}
 		if (e.key === 'Escape') {
 			flow.clearSelection();
 			flow.cancelConnection();
+			if (isSelecting) {
+				isSelecting = false;
+				flow.cancelSelectionRect();
+			}
 		}
 	}
 
@@ -401,6 +467,21 @@
 		{#if flow.draft_connection}
 			<DraftEdge connection={flow.draft_connection} />
 		{/if}
+
+		<!-- Selection rectangle -->
+		{#if flow.selection_rect}
+			{@const rect_x = Math.min(flow.selection_rect.start.x, flow.selection_rect.end.x)}
+			{@const rect_y = Math.min(flow.selection_rect.start.y, flow.selection_rect.end.y)}
+			{@const rect_width = Math.abs(flow.selection_rect.end.x - flow.selection_rect.start.x)}
+			{@const rect_height = Math.abs(flow.selection_rect.end.y - flow.selection_rect.start.y)}
+			<rect
+				x={rect_x}
+				y={rect_y}
+				width={rect_width}
+				height={rect_height}
+				class="kaykay-selection-rect"
+			/>
+		{/if}
 	</svg>
 
 	<div class="kaykay-viewport" style:transform={transformStyle}>
@@ -481,5 +562,20 @@
 		top: 0;
 		left: 0;
 		z-index: 1;
+	}
+
+	/* Selection rectangle */
+	.kaykay-selection-rect {
+		fill: rgba(235, 84, 37, 0.1);
+		stroke: #eb5425;
+		stroke-width: 1;
+		stroke-dasharray: 4 2;
+		pointer-events: none;
+	}
+
+	:global(.kaykay-dark) .kaykay-selection-rect,
+	.kaykay-canvas.kaykay-dark .kaykay-selection-rect {
+		fill: rgba(235, 84, 37, 0.15);
+		stroke: #eb5425;
 	}
 </style>

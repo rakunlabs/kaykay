@@ -20,6 +20,7 @@
 	let hasMoved = $state(false); // Track if node actually moved during drag
 	let dragOffset = $state<Position>({ x: 0, y: 0 });
 	let dragStartPos = $state<Position>({ x: 0, y: 0 }); // Track start position
+	let otherSelectedOffsets = $state<Map<string, Position>>(new Map()); // Offsets for other selected nodes
 
 	// Get absolute position (accounting for parent)
 	const absolutePosition = $derived(flow.getAbsolutePosition(node.id));
@@ -41,7 +42,12 @@
 		
 		e.stopPropagation();
 
-		flow.selectNode(node.id, e.shiftKey);
+		// If this node is already selected and we're not holding shift,
+		// don't change the selection (allows dragging multiple nodes)
+		const isAlreadySelected = flow.selected_node_ids.has(node.id);
+		if (!isAlreadySelected) {
+			flow.selectNode(node.id, e.shiftKey || e.ctrlKey || e.metaKey);
+		}
 
 		// Don't allow dragging when locked
 		if (flow.locked) return;
@@ -57,6 +63,18 @@
 		
 		// Store start position for movement detection
 		dragStartPos = { x: e.clientX, y: e.clientY };
+
+		// Calculate offsets for all other selected nodes (for multi-drag)
+		otherSelectedOffsets = new Map();
+		for (const selected_id of flow.selected_node_ids) {
+			if (selected_id !== node.id) {
+				const other_abs_pos = flow.getAbsolutePosition(selected_id);
+				otherSelectedOffsets.set(selected_id, {
+					x: e.clientX - other_abs_pos.x * flow.viewport.zoom - flow.viewport.x,
+					y: e.clientY - other_abs_pos.y * flow.viewport.zoom - flow.viewport.y,
+				});
+			}
+		}
 
 		flow.callbacks.on_node_drag_start?.(node.id);
 
@@ -74,13 +92,13 @@
 			hasMoved = true;
 		}
 
-		// Calculate new absolute position
+		// Calculate new absolute position for this node
 		const newAbsolutePos: Position = {
 			x: (e.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
 			y: (e.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
 		};
 
-		// If node has a parent, convert to relative position
+		// Update this node's position
 		if (node.parent_id) {
 			const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
 			flow.updateNodePosition(node.id, {
@@ -90,60 +108,89 @@
 		} else {
 			flow.updateNodePosition(node.id, newAbsolutePos);
 		}
+
+		// Move all other selected nodes
+		for (const [other_id, offset] of otherSelectedOffsets) {
+			const other_node = flow.getNode(other_id);
+			if (!other_node) continue;
+
+			const otherNewAbsPos: Position = {
+				x: (e.clientX - offset.x - flow.viewport.x) / flow.viewport.zoom,
+				y: (e.clientY - offset.y - flow.viewport.y) / flow.viewport.zoom,
+			};
+
+			if (other_node.parent_id) {
+				const parentAbsPos = flow.getAbsolutePosition(other_node.parent_id);
+				flow.updateNodePosition(other_id, {
+					x: otherNewAbsPos.x - parentAbsPos.x,
+					y: otherNewAbsPos.y - parentAbsPos.y,
+				});
+			} else {
+				flow.updateNodePosition(other_id, otherNewAbsPos);
+			}
+		}
+	}
+
+	// Helper to process group membership for a node after drag
+	function processGroupMembershipAfterDrag(node_id: string) {
+		const moved_node = flow.getNode(node_id);
+		if (!moved_node) return;
+
+		// Skip group membership logic for group nodes themselves
+		if (moved_node.type === 'group') {
+			flow.updateGroupMembership(node_id);
+			return;
+		}
+
+		const dropPos: Position = flow.getAbsolutePosition(node_id);
+
+		// Check if still inside current parent group
+		if (moved_node.parent_id) {
+			const currentParent = flow.getNode(moved_node.parent_id);
+			if (currentParent) {
+				const parentAbsPos = flow.getAbsolutePosition(moved_node.parent_id);
+				const isInsideParent = 
+					dropPos.x >= parentAbsPos.x &&
+					dropPos.x <= parentAbsPos.x + currentParent.computed_width &&
+					dropPos.y >= parentAbsPos.y &&
+					dropPos.y <= parentAbsPos.y + currentParent.computed_height;
+				
+				if (isInsideParent) {
+					// Still inside parent, don't change anything
+					return;
+				} else {
+					// Dropped outside parent - ungroup
+					flow.setNodeParent(node_id, undefined);
+				}
+			}
+		}
+
+		// Check if dropped into a new group (only if we don't have a parent or just left one)
+		const updated_node = flow.getNode(node_id);
+		if (updated_node && !updated_node.parent_id) {
+			// Get all node IDs being dragged to exclude from group detection
+			const all_dragged_ids = [node.id, ...otherSelectedOffsets.keys()];
+			const targetGroup = flow.findGroupAtPosition(dropPos, all_dragged_ids);
+			if (targetGroup) {
+				flow.setNodeParent(node_id, targetGroup.id);
+			}
+		}
 	}
 
 	function handleMouseUp(e: MouseEvent) {
 		if (isDragging) {
 			isDragging = false;
 
-			// Only check for group changes if the node actually moved
-			if (hasMoved && node.type !== 'group') {
-				const dropPos: Position = {
-					x: (e.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
-					y: (e.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
-				};
-
-				// Check if still inside current parent group
-				if (node.parent_id) {
-					const currentParent = flow.getNode(node.parent_id);
-					if (currentParent) {
-						const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
-						const isInsideParent = 
-							dropPos.x >= parentAbsPos.x &&
-							dropPos.x <= parentAbsPos.x + currentParent.computed_width &&
-							dropPos.y >= parentAbsPos.y &&
-							dropPos.y <= parentAbsPos.y + currentParent.computed_height;
-						
-						if (isInsideParent) {
-							// Still inside parent, don't change anything
-							if (hasMoved) {
-								flow.callbacks.on_node_drag_end?.(node.id, node.position);
-							}
-							window.removeEventListener('mousemove', handleMouseMove);
-							window.removeEventListener('mouseup', handleMouseUp);
-							return;
-						} else {
-							// Dropped outside parent - ungroup
-							flow.setNodeParent(node.id, undefined);
-						}
-					}
-				}
-
-				// Check if dropped into a new group (only if we don't have a parent or just left one)
-				if (!node.parent_id) {
-					const targetGroup = flow.findGroupAtPosition(dropPos, [node.id]);
-					if (targetGroup) {
-						flow.setNodeParent(node.id, targetGroup.id);
-					}
-				}
-			}
-
-			// If a group node was moved, update membership to capture/release nodes
-			if (hasMoved && node.type === 'group') {
-				flow.updateGroupMembership(node.id);
-			}
-
+			// Only check for group changes if nodes actually moved
 			if (hasMoved) {
+				// Process this node
+				processGroupMembershipAfterDrag(node.id);
+
+				// Process all other selected nodes
+				for (const [other_id] of otherSelectedOffsets) {
+					processGroupMembershipAfterDrag(other_id);
+				}
+
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
 		}
@@ -162,7 +209,12 @@
 		e.stopPropagation();
 
 		const touch = e.touches[0];
-		flow.selectNode(node.id, false);
+		
+		// If this node is already selected, don't change the selection (allows dragging multiple nodes)
+		const isAlreadySelected = flow.selected_node_ids.has(node.id);
+		if (!isAlreadySelected) {
+			flow.selectNode(node.id, false);
+		}
 
 		// Don't allow dragging when locked
 		if (flow.locked) return;
@@ -178,6 +230,18 @@
 
 		// Store start position for movement detection
 		dragStartPos = { x: touch.clientX, y: touch.clientY };
+
+		// Calculate offsets for all other selected nodes (for multi-drag)
+		otherSelectedOffsets = new Map();
+		for (const selected_id of flow.selected_node_ids) {
+			if (selected_id !== node.id) {
+				const other_abs_pos = flow.getAbsolutePosition(selected_id);
+				otherSelectedOffsets.set(selected_id, {
+					x: touch.clientX - other_abs_pos.x * flow.viewport.zoom - flow.viewport.x,
+					y: touch.clientY - other_abs_pos.y * flow.viewport.zoom - flow.viewport.y,
+				});
+			}
+		}
 
 		flow.callbacks.on_node_drag_start?.(node.id);
 
@@ -200,13 +264,13 @@
 			hasMoved = true;
 		}
 
-		// Calculate new absolute position
+		// Calculate new absolute position for this node
 		const newAbsolutePos: Position = {
 			x: (touch.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
 			y: (touch.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
 		};
 
-		// If node has a parent, convert to relative position
+		// Update this node's position
 		if (node.parent_id) {
 			const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
 			flow.updateNodePosition(node.id, {
@@ -216,61 +280,43 @@
 		} else {
 			flow.updateNodePosition(node.id, newAbsolutePos);
 		}
+
+		// Move all other selected nodes
+		for (const [other_id, offset] of otherSelectedOffsets) {
+			const other_node = flow.getNode(other_id);
+			if (!other_node) continue;
+
+			const otherNewAbsPos: Position = {
+				x: (touch.clientX - offset.x - flow.viewport.x) / flow.viewport.zoom,
+				y: (touch.clientY - offset.y - flow.viewport.y) / flow.viewport.zoom,
+			};
+
+			if (other_node.parent_id) {
+				const parentAbsPos = flow.getAbsolutePosition(other_node.parent_id);
+				flow.updateNodePosition(other_id, {
+					x: otherNewAbsPos.x - parentAbsPos.x,
+					y: otherNewAbsPos.y - parentAbsPos.y,
+				});
+			} else {
+				flow.updateNodePosition(other_id, otherNewAbsPos);
+			}
+		}
 	}
 
 	function handleTouchEnd(e: TouchEvent) {
 		if (isDragging && e.changedTouches.length > 0) {
 			isDragging = false;
 
-			const touch = e.changedTouches[0];
-
-			// Only check for group changes if the node actually moved
-			if (hasMoved && node.type !== 'group') {
-				const dropPos: Position = {
-					x: (touch.clientX - dragOffset.x - flow.viewport.x) / flow.viewport.zoom,
-					y: (touch.clientY - dragOffset.y - flow.viewport.y) / flow.viewport.zoom,
-				};
-
-				// Check if still inside current parent group
-				if (node.parent_id) {
-					const currentParent = flow.getNode(node.parent_id);
-					if (currentParent) {
-						const parentAbsPos = flow.getAbsolutePosition(node.parent_id);
-						const isInsideParent = 
-							dropPos.x >= parentAbsPos.x &&
-							dropPos.x <= parentAbsPos.x + currentParent.computed_width &&
-							dropPos.y >= parentAbsPos.y &&
-							dropPos.y <= parentAbsPos.y + currentParent.computed_height;
-						
-						if (isInsideParent) {
-							// Still inside parent, don't change anything
-							if (hasMoved) {
-								flow.callbacks.on_node_drag_end?.(node.id, node.position);
-							}
-							cleanupTouchListeners();
-							return;
-						} else {
-							// Dropped outside parent - ungroup
-							flow.setNodeParent(node.id, undefined);
-						}
-					}
-				}
-
-				// Check if dropped into a new group (only if we don't have a parent or just left one)
-				if (!node.parent_id) {
-					const targetGroup = flow.findGroupAtPosition(dropPos, [node.id]);
-					if (targetGroup) {
-						flow.setNodeParent(node.id, targetGroup.id);
-					}
-				}
-			}
-
-			// If a group node was moved, update membership to capture/release nodes
-			if (hasMoved && node.type === 'group') {
-				flow.updateGroupMembership(node.id);
-			}
-
+			// Only check for group changes if nodes actually moved
 			if (hasMoved) {
+				// Process this node
+				processGroupMembershipAfterDrag(node.id);
+
+				// Process all other selected nodes
+				for (const [other_id] of otherSelectedOffsets) {
+					processGroupMembershipAfterDrag(other_id);
+				}
+
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
 		}
