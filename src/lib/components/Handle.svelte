@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount, onDestroy } from 'svelte';
+	import { getContext, onMount, onDestroy, type Snippet } from 'svelte';
 	import type { HandleType, HandlePosition, Position } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 
@@ -13,6 +13,8 @@
 		letter?: string;
 		class?: string;
 		style?: string;
+		/** Custom content to render inside the handle (SVG, img, or any element) */
+		children?: Snippet;
 	}
 
 	const {
@@ -25,6 +27,7 @@
 		letter,
 		class: className = '',
 		style = '',
+		children,
 	}: Props = $props();
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
@@ -262,6 +265,7 @@
 	class:output-disabled={is_output_disabled}
 	class:locked={flow.locked}
 	class:in-group={isInGroup}
+	class:has-custom-shape={!!children}
 	class:connecting={flow.draft_connection &&
 		type === 'output' &&
 		flow.draft_connection.source_handle_id === id &&
@@ -282,6 +286,9 @@
 	data-letter={letter}
 	title="{id} - {type} - {port}"
 >
+	{#if children}
+		{@render children()}
+	{/if}
 	{#if label}
 		<span class="kaykay-handle-label">{label}</span>
 	{/if}
@@ -410,6 +417,25 @@
 
 	.kaykay-handle.locked {
 		cursor: default;
+	}
+
+	/* Custom shape support - remove default styling when children are provided */
+	.kaykay-handle.has-custom-shape {
+		width: auto;
+		height: auto;
+		min-width: 12px;
+		min-height: 12px;
+		background: transparent;
+		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	/* Ensure custom content is positioned correctly */
+	.kaykay-handle.has-custom-shape > :global(*:first-child:not(.kaykay-handle-label)) {
+		display: block;
+		pointer-events: none;
 	}
 
 	/* Display letter using CSS pseudo-element */

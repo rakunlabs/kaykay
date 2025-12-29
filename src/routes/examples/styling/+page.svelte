@@ -7,6 +7,7 @@
 	import MinimalNode from './MinimalNode.svelte';
 	import RoundedNode from './RoundedNode.svelte';
 	import ShadowNode from './ShadowNode.svelte';
+	import CustomHandleNode from './CustomHandleNode.svelte';
 
 	// Custom styled nodes
 	let nodes: FlowNode[] = $state([
@@ -16,6 +17,7 @@
 		{ id: 'minimal', type: 'minimal', position: { x: 50, y: 200 }, data: { label: 'Minimal' } },
 		{ id: 'rounded', type: 'rounded', position: { x: 300, y: 200 }, data: { label: 'Rounded' } },
 		{ id: 'shadow', type: 'shadow', position: { x: 550, y: 200 }, data: { label: 'Deep Shadow' } },
+		{ id: 'custom-handles', type: 'custom-handles', position: { x: 250, y: 350 }, data: { label: 'Custom Handles' } },
 	]);
 
 	let edges: FlowEdge[] = $state([
@@ -32,6 +34,7 @@
 		'minimal': MinimalNode,
 		'rounded': RoundedNode,
 		'shadow': ShadowNode,
+		'custom-handles': CustomHandleNode,
 	};
 
 	const callbacks = {
@@ -76,6 +79,7 @@
 				<li><strong>Minimal</strong> - Clean, simple borders</li>
 				<li><strong>Rounded</strong> - Pill-shaped nodes</li>
 				<li><strong>Shadow</strong> - Layered shadow effects</li>
+				<li><strong>Custom Handles</strong> - SVG, emoji, or image handles</li>
 			</ul>
 		</div>
 
@@ -98,6 +102,30 @@
     type: 'bezier'
   }
 ];`}</pre>
+			</div>
+		</div>
+
+		<div class="section">
+			<h3>Custom Handle Shapes</h3>
+			<p>Add SVG, images, emojis, or any content inside handles using the children slot.</p>
+			<div class="code-block">
+				<pre>{`<!-- Diamond SVG handle -->
+<Handle id="in" type="input" port="data">
+  <svg width="16" height="16" viewBox="0 0 16 16">
+    <path d="M8 0L16 8L8 16L0 8Z" 
+          fill="#f59e0b"/>
+  </svg>
+</Handle>
+
+<!-- Emoji handle -->
+<Handle id="out" type="output" port="signal">
+  <span>⚡</span>
+</Handle>
+
+<!-- Image handle -->
+<Handle id="img" type="input" port="image">
+  <img src="/icon.png" alt="handle" />
+</Handle>`}</pre>
 			</div>
 		</div>
 
