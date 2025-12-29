@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { resolve, asset } from '$app/paths';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		children: Snippet;
@@ -12,8 +13,21 @@
 	let sidebarOpen = $state(true);
 	let theme: 'light' | 'dark' = $state('light');
 
+	// Load theme from localStorage on mount
+	$effect(() => {
+		if (browser) {
+			const savedTheme = localStorage.getItem('kaykay-theme');
+			if (savedTheme === 'light' || savedTheme === 'dark') {
+				theme = savedTheme;
+			}
+		}
+	});
+
 	function toggleTheme() {
 		theme = theme === 'dark' ? 'light' : 'dark';
+		if (browser) {
+			localStorage.setItem('kaykay-theme', theme);
+		}
 	}
 
 	function toggleSidebar() {
