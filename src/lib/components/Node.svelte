@@ -76,6 +76,9 @@
 			}
 		}
 
+		// Save snapshot for undo before drag starts
+		flow.pushSnapshot();
+
 		flow.callbacks.on_node_drag_start?.(node.id);
 
 		window.addEventListener('mousemove', handleMouseMove);
@@ -242,6 +245,9 @@
 				});
 			}
 		}
+
+		// Save snapshot for undo before drag starts
+		flow.pushSnapshot();
 
 		flow.callbacks.on_node_drag_start?.(node.id);
 

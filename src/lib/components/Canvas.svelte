@@ -223,8 +223,22 @@
 		}
 	}
 
-	// Handle keydown for delete, copy, paste
+	// Handle keydown for delete, copy, paste, undo, redo
 	function handleKeyDown(e: KeyboardEvent) {
+		// Undo
+		if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+			e.preventDefault();
+			flow.undo();
+			return;
+		}
+
+		// Redo (Ctrl+Y or Ctrl+Shift+Z)
+		if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey) || (e.key === 'Z' && e.shiftKey))) {
+			e.preventDefault();
+			flow.redo();
+			return;
+		}
+
 		// Copy
 		if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
 			e.preventDefault();

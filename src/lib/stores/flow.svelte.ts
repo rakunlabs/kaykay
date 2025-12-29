@@ -45,6 +45,11 @@ export class FlowState {
 	// Auto-incrementing node ID counter
 	private next_node_id = 1;
 
+	// History state for undo/redo
+	private history_stack = $state<Flow[]>([]);
+	private redo_stack = $state<Flow[]>([]);
+	private is_restoring = false; // Prevent recursive history saving during undo/redo
+
 	// Canvas dimensions (set by Canvas component)
 	canvas_width = $state<number>(800);
 	canvas_height = $state<number>(600);
@@ -88,6 +93,7 @@ export class FlowState {
 	// ============ Node Operations ============
 
 	addNode(node: FlowNode): string {
+		this.pushSnapshot();
 		const node_id = node.id || this.generateNodeId();
 		const node_state: NodeState = {
 			...node,
@@ -101,9 +107,15 @@ export class FlowState {
 	}
 
 	removeNode(node_id: string): void {
+		this.pushSnapshot();
+		this.removeNodeInternal(node_id);
+	}
+
+	// Internal remove without snapshot (for recursive calls and batch operations)
+	private removeNodeInternal(node_id: string): void {
 		// Remove child nodes first (recursively)
 		const children = this.getChildNodes(node_id);
-		children.forEach((child) => this.removeNode(child.id));
+		children.forEach((child) => this.removeNodeInternal(child.id));
 
 		// Remove connected edges
 		this.edges = this.edges.filter((e) => e.source !== node_id && e.target !== node_id);
@@ -129,6 +141,7 @@ export class FlowState {
 	}
 
 	updateNodeData<T>(node_id: string, data: Partial<T>): void {
+		this.pushSnapshot();
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
 			node.data = { ...node.data, ...data };
@@ -144,6 +157,7 @@ export class FlowState {
 	}
 
 	resizeNode(node_id: string, width: number, height: number): void {
+		this.pushSnapshot();
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
 			node.width = width;
@@ -186,7 +200,7 @@ export class FlowState {
 				// Node is inside group but not a child - add it
 				// Only add if not already in another group, or if this group is smaller (more specific)
 				if (!node.parent_id) {
-					this.setNodeParent(node.id, group_id);
+					this.setNodeParentInternal(node.id, group_id);
 				} else {
 					// Check if this group is smaller (more nested)
 					const current_parent = this.getNode(node.parent_id);
@@ -194,13 +208,13 @@ export class FlowState {
 						const current_area = current_parent.computed_width * current_parent.computed_height;
 						const this_area = group.computed_width * group.computed_height;
 						if (this_area < current_area) {
-							this.setNodeParent(node.id, group_id);
+							this.setNodeParentInternal(node.id, group_id);
 						}
 					}
 				}
 			} else if (!is_inside_group && node.parent_id === group_id) {
 				// Node is outside group but is a child - remove it
-				this.setNodeParent(node.id, undefined);
+				this.setNodeParentInternal(node.id, undefined);
 			}
 		}
 	}
@@ -234,6 +248,12 @@ export class FlowState {
 
 	// Set parent of a node (for grouping/ungrouping)
 	setNodeParent(node_id: string, parent_id: string | undefined): void {
+		this.pushSnapshot();
+		this.setNodeParentInternal(node_id, parent_id);
+	}
+
+	// Internal setNodeParent without snapshot (for batch operations like after drag)
+	setNodeParentInternal(node_id: string, parent_id: string | undefined): void {
 		const node = this.getNode(node_id);
 		if (!node) return;
 
@@ -366,6 +386,7 @@ export class FlowState {
 
 		if (exists) return false;
 
+		this.pushSnapshot();
 		this.edges.push({
 			...edge,
 			type: edge.type ?? this.config.default_edge_type,
@@ -376,6 +397,12 @@ export class FlowState {
 	}
 
 	removeEdge(edge_id: string): void {
+		this.pushSnapshot();
+		this.removeEdgeInternal(edge_id);
+	}
+
+	// Internal remove without snapshot (for batch operations)
+	private removeEdgeInternal(edge_id: string): void {
 		this.edges = this.edges.filter((e) => e.id !== edge_id);
 		const new_selected = new Set(this.selected_edge_ids);
 		new_selected.delete(edge_id);
@@ -387,6 +414,7 @@ export class FlowState {
 	}
 
 	updateEdge(edge_id: string, updates: Partial<FlowEdge>): void {
+		this.pushSnapshot();
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (edge) {
 			Object.assign(edge, updates);
@@ -398,6 +426,8 @@ export class FlowState {
 	addEdgeWaypoint(edge_id: string, position: Position, index?: number): void {
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (!edge) return;
+
+		this.pushSnapshot();
 
 		if (!edge.waypoints) {
 			edge.waypoints = [];
@@ -415,6 +445,7 @@ export class FlowState {
 		if (!edge || !edge.waypoints) return;
 
 		if (waypoint_index >= 0 && waypoint_index < edge.waypoints.length) {
+			this.pushSnapshot();
 			edge.waypoints[waypoint_index] = position;
 		}
 	}
@@ -424,6 +455,7 @@ export class FlowState {
 		if (!edge || !edge.waypoints) return;
 
 		if (waypoint_index >= 0 && waypoint_index < edge.waypoints.length) {
+			this.pushSnapshot();
 			edge.waypoints.splice(waypoint_index, 1);
 			// Clean up empty waypoints array
 			if (edge.waypoints.length === 0) {
@@ -434,7 +466,8 @@ export class FlowState {
 
 	clearEdgeWaypoints(edge_id: string): void {
 		const edge = this.edges.find((e) => e.id === edge_id);
-		if (edge) {
+		if (edge && edge.waypoints) {
+			this.pushSnapshot();
 			edge.waypoints = undefined;
 		}
 	}
@@ -505,8 +538,11 @@ export class FlowState {
 		const node_ids = Array.from(this.selected_node_ids);
 		const edge_ids = Array.from(this.selected_edge_ids);
 
-		node_ids.forEach((id) => this.removeNode(id));
-		edge_ids.forEach((id) => this.removeEdge(id));
+		if (node_ids.length === 0 && edge_ids.length === 0) return;
+
+		this.pushSnapshot();
+		node_ids.forEach((id) => this.removeNodeInternal(id));
+		edge_ids.forEach((id) => this.removeEdgeInternal(id));
 
 		this.callbacks.on_delete?.(node_ids, edge_ids);
 	}
@@ -796,6 +832,85 @@ export class FlowState {
 		this.clearSelection();
 		// Re-initialize next_node_id based on loaded nodes
 		this.initializeNextNodeId();
+		// Clear history when loading a new flow
+		if (!this.is_restoring) {
+			this.history_stack = [];
+			this.redo_stack = [];
+		}
+	}
+
+	// ============ Undo/Redo ============
+
+	// Save current state before an undoable operation
+	pushSnapshot(): void {
+		if (this.is_restoring) return;
+		const snapshot = this.toJSON();
+		const max_history = this.config.max_history ?? 50;
+		this.history_stack = [...this.history_stack.slice(-(max_history - 1)), snapshot];
+		this.redo_stack = []; // Clear redo stack on new action
+	}
+
+	// Undo the last operation
+	undo(): boolean {
+		if (this.history_stack.length === 0) return false;
+		this.is_restoring = true;
+		try {
+			const current = this.toJSON();
+			this.redo_stack = [...this.redo_stack, current];
+			const previous = this.history_stack[this.history_stack.length - 1];
+			this.history_stack = this.history_stack.slice(0, -1);
+			this.restoreFromSnapshot(previous);
+			this.callbacks.on_undo?.();
+			return true;
+		} finally {
+			this.is_restoring = false;
+		}
+	}
+
+	// Redo the last undone operation
+	redo(): boolean {
+		if (this.redo_stack.length === 0) return false;
+		this.is_restoring = true;
+		try {
+			const current = this.toJSON();
+			this.history_stack = [...this.history_stack, current];
+			const next = this.redo_stack[this.redo_stack.length - 1];
+			this.redo_stack = this.redo_stack.slice(0, -1);
+			this.restoreFromSnapshot(next);
+			this.callbacks.on_redo?.();
+			return true;
+		} finally {
+			this.is_restoring = false;
+		}
+	}
+
+	// Restore state from a snapshot (without clearing history)
+	private restoreFromSnapshot(flow: Flow): void {
+		this.nodes = flow.nodes.map((node) => ({
+			...node,
+			handles: new Map(),
+			computed_width: node.width ?? 0,
+			computed_height: node.height ?? 0,
+		}));
+		this.edges = [...flow.edges];
+		this.clearSelection();
+		this.initializeNextNodeId();
+	}
+
+	// Check if undo is available
+	get canUndo(): boolean {
+		return this.history_stack.length > 0;
+	}
+
+	// Check if redo is available
+	get canRedo(): boolean {
+		return this.redo_stack.length > 0;
+	}
+
+	// Clear all history
+	clearHistory(): void {
+		this.history_stack = [];
+		this.redo_stack = [];
 	}
 
 	// ============ Node ID Generation ============
@@ -962,6 +1077,8 @@ export class FlowState {
 		if (!data || data.nodes.length === 0) return;
 		if (this.locked) return;
 
+		this.pushSnapshot();
+
 		const paste_pos = position ?? { x: 100, y: 100 };
 
 		// Build a set of node IDs in clipboard to check parent relationships
@@ -1044,12 +1161,20 @@ export class FlowState {
 			};
 		});
 
-		// Add nodes and edges
+		// Add nodes and edges directly (without calling public methods that would create snapshots)
 		// Note: We add edges directly to the array instead of using addEdge()
 		// because addEdge() validates connections via canConnect(), which requires
 		// handles to be registered. But handles are registered when Handle components
 		// mount, which happens after paste() completes.
-		new_nodes.forEach((node) => this.addNode(node));
+		for (const node of new_nodes) {
+			const node_state: NodeState = {
+				...node,
+				handles: new Map(),
+				computed_width: node.width ?? 0,
+				computed_height: node.height ?? 0,
+			};
+			this.nodes.push(node_state);
+		}
 		this.edges.push(...new_edges);
 
 		// Select the newly pasted nodes

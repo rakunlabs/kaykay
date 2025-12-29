@@ -158,6 +158,8 @@ export interface FlowConfig {
 	default_edge_type?: EdgeType;
 	// Lock the flow to prevent modifications (nodes can't be moved, edges can't be created/deleted)
 	locked?: boolean;
+	// Maximum number of undo history steps (default: 50)
+	max_history?: number;
 }
 
 // Event callbacks
@@ -169,4 +171,6 @@ export interface FlowCallbacks {
 	on_edge_click?: (edge_id: string) => void;
 	on_delete?: (node_ids: string[], edge_ids: string[]) => void;
 	on_viewport_change?: (viewport: Viewport) => void;
+	on_undo?: () => void;
+	on_redo?: () => void;
 }
