@@ -7,6 +7,8 @@
 	import GroupNode from '../../lib/components/GroupNode.svelte';
 	import Minimap from '../../lib/components/Minimap.svelte';
 	import Controls from '../../lib/components/Controls.svelte';
+	import StickyNoteNode from '../../lib/components/StickyNoteNode.svelte';
+	import MarkdownStickyNote from './MarkdownStickyNote.svelte';
 	// Additional node types
 	import LabeledNode from '../examples/nodes/LabeledNode.svelte';
 	import DataSourceNode from '../examples/nodes/DataSourceNode.svelte';
@@ -89,6 +91,32 @@
 			position: { x: 30, y: 150 },
 			data: { title: 'Result B' },
 			parent_id: 'group-2'
+		},
+		// Sticky notes (no handles)
+		{
+			id: 'sticky-1',
+			type: 'sticky',
+			position: { x: 450, y: 500 },
+			width: 180,
+			height: 100,
+			data: { text: 'Remember to connect\nall data sources!', color: '#fef08a' }
+		},
+		{
+			id: 'sticky-2',
+			type: 'sticky',
+			position: { x: 750, y: 420 },
+			width: 200,
+			height: 120,
+			data: { text: 'Output nodes receive\nprocessed data here', color: '#bbf7d0' }
+		},
+		// Markdown sticky note example
+		{
+			id: 'sticky-3',
+			type: 'markdown-sticky',
+			position: { x: 100, y: 450 },
+			width: 220,
+			height: 140,
+			data: { text: '**Markdown** support!\n_italic_ and `code`\n[kaykay repo](https://github.com/rakunlabs/kaykay)', color: '#bfdbfe' }
 		}
 	]);
 
@@ -158,7 +186,9 @@
 		labeled: LabeledNode,
 		datasource: DataSourceNode,
 		input: InputNode,
-		multihandle: MultiHandleNode
+		multihandle: MultiHandleNode,
+		sticky: StickyNoteNode,
+		'markdown-sticky': MarkdownStickyNote
 	};
 
 	// Available node types for cycling when adding new nodes
@@ -169,7 +199,8 @@
 		{ type: 'datasource', data: (n: number) => ({ label: `Source ${n}` }) },
 		{ type: 'process', data: (n: number) => ({ operation: `Process ${n}`, description: 'Custom process' }) },
 		{ type: 'multihandle', data: (n: number) => ({ label: `Multi ${n}` }) },
-		{ type: 'output', data: (n: number) => ({ title: `Output ${n}` }) }
+		{ type: 'output', data: (n: number) => ({ title: `Output ${n}` }) },
+		{ type: 'sticky', data: (n: number) => ({ text: `Note ${n}\nDouble-click to edit...`, color: ['#fef08a', '#bbf7d0', '#bfdbfe', '#fecaca', '#e9d5ff'][n % 5] }), width: 180, height: 100 }
 	];
 	let nodeTypeIndex = 0;
 
@@ -208,7 +239,9 @@
 			id: '',  // Auto-generate ID
 			type: nodeConfig.type,
 			position: { x: 100 + Math.random() * 300, y: 100 + Math.random() * 300 },
-			data: nodeConfig.data(nodeCount)
+			data: nodeConfig.data(nodeCount),
+			...('width' in nodeConfig && { width: nodeConfig.width }),
+			...('height' in nodeConfig && { height: nodeConfig.height })
 		};
 		flow.addNode(newNode);
 		
