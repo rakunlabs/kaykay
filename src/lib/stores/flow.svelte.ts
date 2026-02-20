@@ -654,18 +654,18 @@ export class FlowState {
 		});
 	}
 
-	// Zoom in by a fixed step (default 20%)
-	zoomIn(step: number = 0.2): void {
-		const new_zoom = Math.min(this.config.max_zoom!, this.viewport.zoom * (1 + step));
+	// Zoom in by a fixed step (default 5 percentage points)
+	zoomIn(step: number = 0.05): void {
+		const new_zoom = Math.min(this.config.max_zoom!, this.viewport.zoom + step);
 		this.setViewport({
 			...this.viewport,
 			zoom: new_zoom,
 		});
 	}
 
-	// Zoom out by a fixed step (default 20%)
-	zoomOut(step: number = 0.2): void {
-		const new_zoom = Math.max(this.config.min_zoom!, this.viewport.zoom * (1 - step));
+	// Zoom out by a fixed step (default 5 percentage points)
+	zoomOut(step: number = 0.05): void {
+		const new_zoom = Math.max(this.config.min_zoom!, this.viewport.zoom - step);
 		this.setViewport({
 			...this.viewport,
 			zoom: new_zoom,

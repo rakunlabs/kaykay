@@ -57,11 +57,9 @@
 	let mouseCanvasPos = $state<Position>({ x: 0, y: 0 });
 	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
-	// Touch state for pinch-to-zoom and panning
-	let lastTouchDistance = $state<number | null>(null);
+	// Touch state for panning
 	let lastTouchCenter = $state<Position | null>(null);
 	let isTouchPanning = $state(false);
-	let touchStartPos = $state<Position | null>(null);
 
 	// Track canvas dimensions for fitView
 	onMount(() => {
@@ -78,15 +76,21 @@
 		return () => resizeObserver.disconnect();
 	});
 
-	// Handle mouse wheel for zooming
+	// Handle mouse wheel for panning (default) or zooming (Ctrl+scroll)
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
-		const rect = containerEl.getBoundingClientRect();
-		const center = {
-			x: e.clientX - rect.left,
-			y: e.clientY - rect.top,
-		};
-		flow.zoom(-e.deltaY * 0.001, center);
+		if (e.ctrlKey || e.metaKey) {
+			// Ctrl+scroll: zoom toward cursor
+			const rect = containerEl.getBoundingClientRect();
+			const center = {
+				x: e.clientX - rect.left,
+				y: e.clientY - rect.top,
+			};
+			flow.zoom(-e.deltaY * 0.001, center);
+		} else {
+			// Normal scroll / two-finger trackpad: pan
+			flow.pan(-e.deltaX, -e.deltaY);
+		}
 	}
 
 	// Handle mouse down for panning
@@ -300,14 +304,6 @@
 	}
 
 	// Helper to calculate distance between two touch points
-	function getTouchDistance(touches: TouchList): number {
-		if (touches.length < 2) return 0;
-		const dx = touches[0].clientX - touches[1].clientX;
-		const dy = touches[0].clientY - touches[1].clientY;
-		return Math.sqrt(dx * dx + dy * dy);
-	}
-
-	// Helper to calculate center point between two touches
 	function getTouchCenter(touches: TouchList): Position {
 		if (touches.length < 2) {
 			return { x: touches[0].clientX, y: touches[0].clientY };
@@ -333,15 +329,9 @@
 		}
 
 		if (e.touches.length === 2) {
-			// Pinch-to-zoom: track initial distance and center
+			// Two-finger panning: track initial center
 			e.preventDefault();
-			lastTouchDistance = getTouchDistance(e.touches);
 			lastTouchCenter = getTouchCenter(e.touches);
-			const rect = containerEl.getBoundingClientRect();
-			touchStartPos = {
-				x: lastTouchCenter.x - rect.left,
-				y: lastTouchCenter.y - rect.top,
-			};
 		} else if (e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge) {
 			// Single touch panning on canvas background
 			isTouchPanning = true;
@@ -352,29 +342,17 @@
 		connectionDragDistance = 0;
 	}
 
-	// Handle touch move for panning and pinch-to-zoom
+	// Handle touch move for panning
 	function handleTouchMove(e: TouchEvent) {
-		if (e.touches.length === 2 && lastTouchDistance !== null && lastTouchCenter !== null && touchStartPos !== null) {
-			// Pinch-to-zoom
+		if (e.touches.length === 2 && lastTouchCenter !== null) {
+			// Two-finger panning
 			e.preventDefault();
-			const newDistance = getTouchDistance(e.touches);
 			const newCenter = getTouchCenter(e.touches);
-			const rect = containerEl.getBoundingClientRect();
 
-			// Calculate zoom delta
-			const zoomDelta = (newDistance - lastTouchDistance) * 0.005;
-			const center = {
-				x: newCenter.x - rect.left,
-				y: newCenter.y - rect.top,
-			};
-			flow.zoom(zoomDelta, center);
-
-			// Also pan based on center movement
 			const dx = newCenter.x - lastTouchCenter.x;
 			const dy = newCenter.y - lastTouchCenter.y;
 			flow.pan(dx, dy);
 
-			lastTouchDistance = newDistance;
 			lastTouchCenter = newCenter;
 		} else if (isTouchPanning && lastTouchCenter !== null && e.touches.length === 1) {
 			// Single touch panning
@@ -406,11 +384,6 @@
 
 	// Handle touch end
 	function handleTouchEnd(e: TouchEvent) {
-		if (e.touches.length < 2) {
-			lastTouchDistance = null;
-			touchStartPos = null;
-		}
-
 		if (e.touches.length === 0) {
 			// Try to complete draft connection
 			if (flow.draft_connection && e.changedTouches.length > 0) {
@@ -448,9 +421,7 @@
 	// Handle touch cancel
 	function handleTouchCancel() {
 		isTouchPanning = false;
-		lastTouchDistance = null;
 		lastTouchCenter = null;
-		touchStartPos = null;
 		if (flow.draft_connection) {
 			flow.cancelConnection();
 		}
