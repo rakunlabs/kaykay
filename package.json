@@ -1,6 +1,6 @@
 {
   "name": "kaykay",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A Svelte 5 flow/node editor library with typed port connections",
   "type": "module",
   "svelte": "./dist/index.js",
