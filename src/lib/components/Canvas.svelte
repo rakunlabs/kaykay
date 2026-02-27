@@ -232,8 +232,9 @@
 
 	// Handle keydown for delete, copy, paste, undo, redo
 	function handleKeyDown(e: KeyboardEvent) {
-		// Only process canvas shortcuts when the canvas itself has focus
-		if (document.activeElement !== containerEl) return;
+		// Ignore if the focused element is an input, textarea, or contentEditable
+		const target = e.target as HTMLElement;
+		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
 		// Undo
 		if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
