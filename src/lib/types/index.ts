@@ -171,6 +171,7 @@ export interface FlowCallbacks {
 	on_edge_click?: (edge_id: string) => void;
 	on_delete?: (node_ids: string[], edge_ids: string[]) => void;
 	on_viewport_change?: (viewport: Viewport) => void;
+	on_selection_change?: (node_ids: string[], edge_ids: string[]) => void;
 	on_undo?: () => void;
 	on_redo?: () => void;
 }

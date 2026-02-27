@@ -95,6 +95,9 @@
 
 	// Handle mouse down for panning
 	function handleMouseDown(e: MouseEvent) {
+		// Focus the canvas so keyboard shortcuts work
+		containerEl?.focus();
+
 		const target = e.target as HTMLElement;
 		// Check if clicking on canvas background (not on a node, handle, or edge)
 		const isOnNode = target.closest('[data-node-id]');
@@ -229,6 +232,9 @@
 
 	// Handle keydown for delete, copy, paste, undo, redo
 	function handleKeyDown(e: KeyboardEvent) {
+		// Only process canvas shortcuts when the canvas itself has focus
+		if (document.activeElement !== containerEl) return;
+
 		// Undo
 		if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
 			e.preventDefault();
@@ -260,7 +266,7 @@
 		// Select all
 		if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
 			e.preventDefault();
-			flow.selected_node_ids = new Set(flow.nodes.map((n) => n.id));
+			flow.selectAll();
 			return;
 		}
 
@@ -442,7 +448,6 @@
 	);
 </script>
 
-<svelte:window onkeydown={handleKeyDown} />
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -459,6 +464,7 @@
 	ontouchmove={handleTouchMove}
 	ontouchend={handleTouchEnd}
 	ontouchcancel={handleTouchCancel}
+	onkeydown={handleKeyDown}
 	role="application"
 	tabindex="0"
 >

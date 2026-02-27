@@ -507,6 +507,14 @@ export class FlowState {
 
 	// ============ Selection ============
 
+	// Fire on_selection_change callback with current selection state
+	private notifySelectionChange(): void {
+		this.callbacks.on_selection_change?.(
+			Array.from(this.selected_node_ids),
+			Array.from(this.selected_edge_ids)
+		);
+	}
+
 	selectNode(node_id: string, additive = false): void {
 		if (!additive) {
 			this.selected_node_ids = new Set([node_id]);
@@ -515,6 +523,7 @@ export class FlowState {
 			this.selected_node_ids = new Set([...this.selected_node_ids, node_id]);
 		}
 		this.callbacks.on_node_click?.(node_id);
+		this.notifySelectionChange();
 	}
 
 	selectEdge(edge_id: string, additive = false): void {
@@ -525,11 +534,18 @@ export class FlowState {
 			this.selected_edge_ids = new Set([...this.selected_edge_ids, edge_id]);
 		}
 		this.callbacks.on_edge_click?.(edge_id);
+		this.notifySelectionChange();
+	}
+
+	selectAll(): void {
+		this.selected_node_ids = new Set(this.nodes.map((n) => n.id));
+		this.notifySelectionChange();
 	}
 
 	clearSelection(): void {
 		this.selected_node_ids = new Set();
 		this.selected_edge_ids = new Set();
+		this.notifySelectionChange();
 	}
 
 	deleteSelected(): void {
@@ -545,6 +561,7 @@ export class FlowState {
 		edge_ids.forEach((id) => this.removeEdgeInternal(id));
 
 		this.callbacks.on_delete?.(node_ids, edge_ids);
+		this.notifySelectionChange();
 	}
 
 	// Log selected nodes and edges as JSON to console
@@ -963,6 +980,7 @@ export class FlowState {
 		}
 		this.selected_node_ids = new_selected;
 		this.selection_rect = null;
+		this.notifySelectionChange();
 	}
 
 	cancelSelectionRect(): void {
@@ -1180,6 +1198,7 @@ export class FlowState {
 		// Select the newly pasted nodes
 		this.selected_node_ids = new Set(new_nodes.map((n) => n.id));
 		this.selected_edge_ids = new Set();
+		this.notifySelectionChange();
 	}
 }
 
