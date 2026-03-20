@@ -57,14 +57,35 @@
 		}
 	}
 
-	// Derived values for edge styling
-	const strokeColor = $derived(edge.color ?? '#888');
-	const strokeDashArray = $derived(getStrokeDashArray(edge.style));
-	const isAnimated = $derived(edge.animated ?? false);
+	// Port type → edge color mapping (matches Handle.svelte port-type colors).
+	const portTypeColors: Record<string, string> = {
+		text: '#3b82f6',
+		data: '#6b7280',
+		image: '#22c55e',
+		audio: '#f97316',
+		video: '#ef4444',
+		config: '#64748b',
+		messages: '#a855f7',
+		embedding: '#14b8a6',
+		boolean: '#f59e0b',
+	};
 
 	// Get source and target handle info (for position type like 'left', 'right')
 	const source_handle = $derived(flow.getHandle(edge.source, edge.source_handle));
 	const target_handle = $derived(flow.getHandle(edge.target, edge.target_handle));
+
+	// Derived values for edge styling. When no explicit color is set,
+	// the edge inherits color from the source handle's port type.
+	const strokeColor = $derived.by(() => {
+		if (edge.color) return edge.color;
+		if (source_handle?.port) {
+			const autoColor = portTypeColors[source_handle.port];
+			if (autoColor) return autoColor;
+		}
+		return '#888';
+	});
+	const strokeDashArray = $derived(getStrokeDashArray(edge.style));
+	const isAnimated = $derived(edge.animated ?? false);
 
 	// Get reactive handle positions - these update when nodes move
 	const source_position = $derived(flow.getHandlePosition(edge.source, edge.source_handle));

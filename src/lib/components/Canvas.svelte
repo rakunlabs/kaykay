@@ -4,6 +4,7 @@
 		FlowNode,
 		FlowEdge,
 		NodeTypes,
+		NodeStatus,
 		FlowConfig,
 		FlowCallbacks,
 		Position,
@@ -19,6 +20,8 @@
 		nodeTypes: NodeTypes;
 		config?: FlowConfig;
 		callbacks?: FlowCallbacks;
+		/** Per-node execution status. Keys are node IDs, values are status strings. */
+		node_statuses?: Record<string, NodeStatus>;
 		class?: string;
 		background?: import('svelte').Snippet;
 		controls?: import('svelte').Snippet;
@@ -31,6 +34,7 @@
 		nodeTypes,
 		config = {},
 		callbacks = {},
+		node_statuses = {},
 		class: className = '',
 		background,
 		controls,
@@ -510,6 +514,7 @@
 					{node}
 					component={nodeTypes[node.type]}
 					selected={flow.selected_node_ids.has(node.id)}
+					status={node_statuses[node.id]}
 				/>
 			{/each}
 		</div>

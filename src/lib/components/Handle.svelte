@@ -11,6 +11,8 @@
 		accept?: string[];
 		label?: string;
 		letter?: string;
+		/** Override handle color (CSS color value). Takes precedence over port-type auto-coloring. */
+		port_color?: string;
 		class?: string;
 		style?: string;
 		/** Custom content to render inside the handle (SVG, img, or any element) */
@@ -25,6 +27,7 @@
 		accept,
 		label,
 		letter,
+		port_color,
 		class: className = '',
 		style = '',
 		children,
@@ -254,8 +257,14 @@
 		}
 	}
 
-	// Computed style - only apply custom styles, positioning handled by CSS classes
-	const computedStyle = $derived(style);
+	// Computed style - includes port_color override when set.
+	const computedStyle = $derived.by(() => {
+		if (port_color) {
+			const colorVars = `--kaykay-handle-port-color: ${port_color};`;
+			return style ? `${colorVars} ${style}` : colorVars;
+		}
+		return style;
+	});
 </script>
 
 <div
@@ -417,6 +426,69 @@
 
 	.kaykay-handle.locked {
 		cursor: default;
+	}
+
+	/* ─── Port-type auto-coloring ───
+	 * Handles are automatically colored based on their port type via
+	 * the data-handle-port attribute. Coloring is suppressed during
+	 * connection interactions (can-connect, incompatible, connecting).
+	 * Override with the port_color prop (sets --kaykay-handle-port-color).
+	 */
+
+	.kaykay-handle[data-handle-port="text"] {
+		--kaykay-handle-input-bg: #93c5fd;
+		--kaykay-handle-input-border: #3b82f6;
+		--kaykay-handle-output-bg: #93c5fd;
+		--kaykay-handle-output-border: #3b82f6;
+	}
+
+	.kaykay-handle[data-handle-port="image"] {
+		--kaykay-handle-input-bg: #86efac;
+		--kaykay-handle-input-border: #22c55e;
+		--kaykay-handle-output-bg: #86efac;
+		--kaykay-handle-output-border: #22c55e;
+	}
+
+	.kaykay-handle[data-handle-port="audio"] {
+		--kaykay-handle-input-bg: #fdba74;
+		--kaykay-handle-input-border: #f97316;
+		--kaykay-handle-output-bg: #fdba74;
+		--kaykay-handle-output-border: #f97316;
+	}
+
+	.kaykay-handle[data-handle-port="video"] {
+		--kaykay-handle-input-bg: #fca5a5;
+		--kaykay-handle-input-border: #ef4444;
+		--kaykay-handle-output-bg: #fca5a5;
+		--kaykay-handle-output-border: #ef4444;
+	}
+
+	.kaykay-handle[data-handle-port="config"] {
+		--kaykay-handle-input-bg: #94a3b8;
+		--kaykay-handle-input-border: #64748b;
+		--kaykay-handle-output-bg: #94a3b8;
+		--kaykay-handle-output-border: #64748b;
+	}
+
+	.kaykay-handle[data-handle-port="messages"] {
+		--kaykay-handle-input-bg: #d8b4fe;
+		--kaykay-handle-input-border: #a855f7;
+		--kaykay-handle-output-bg: #d8b4fe;
+		--kaykay-handle-output-border: #a855f7;
+	}
+
+	.kaykay-handle[data-handle-port="embedding"] {
+		--kaykay-handle-input-bg: #5eead4;
+		--kaykay-handle-input-border: #14b8a6;
+		--kaykay-handle-output-bg: #5eead4;
+		--kaykay-handle-output-border: #14b8a6;
+	}
+
+	.kaykay-handle[data-handle-port="boolean"] {
+		--kaykay-handle-input-bg: #fcd34d;
+		--kaykay-handle-input-border: #f59e0b;
+		--kaykay-handle-output-bg: #fcd34d;
+		--kaykay-handle-output-border: #f59e0b;
 	}
 
 	/* Custom shape support - remove default styling when children are provided */

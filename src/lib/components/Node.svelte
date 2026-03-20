@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
 	import type { Component } from 'svelte';
-	import type { NodeState, NodeProps, Position } from '../types/index.js';
+	import type { NodeState, NodeProps, NodeStatus, Position } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 
 	interface Props {
 		node: NodeState;
 		component: Component<NodeProps>;
 		selected: boolean;
+		status?: NodeStatus;
 	}
 
-	const { node, component, selected }: Props = $props();
+	const { node, component, selected, status }: Props = $props();
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
@@ -356,6 +357,9 @@
 	class:dragging={isDragging}
 	class:locked={isLocked}
 	class:group={isGroup}
+	class:status-running={status === 'running'}
+	class:status-completed={status === 'completed'}
+	class:status-error={status === 'error'}
 	bind:this={nodeEl}
 	style={nodeStyle}
 	style:width={node.width ? `${node.width}px` : undefined}
@@ -364,6 +368,7 @@
 	ontouchstart={handleTouchStart}
 	role="group"
 	data-node-id={node.id}
+	data-node-status={status ?? 'idle'}
 >
 	{#if component}
 		{@const Component = component}
@@ -371,6 +376,7 @@
 			id={node.id}
 			data={node.data}
 			{selected}
+			{status}
 		/>
 	{/if}
 </div>
@@ -403,5 +409,45 @@
 	.kaykay-node.group.selected {
 		z-index: 0 !important;
 		outline-offset: -2px;
+	}
+
+	/* ─── Node execution status indicators ─── */
+
+	.kaykay-node.status-running {
+		outline: 2px solid var(--kaykay-node-running-outline, #3b82f6);
+		animation: kaykay-pulse 1.5s ease-in-out infinite;
+	}
+
+	.kaykay-node.status-completed {
+		outline: 2px solid var(--kaykay-node-completed-outline, #22c55e);
+	}
+
+	.kaykay-node.status-error {
+		outline: 2px solid var(--kaykay-node-error-outline, #ef4444);
+	}
+
+	/* Running pulse animation */
+	@keyframes kaykay-pulse {
+		0%, 100% {
+			outline-color: var(--kaykay-node-running-outline, #3b82f6);
+			box-shadow: 0 0 0 0 transparent;
+		}
+		50% {
+			outline-color: var(--kaykay-node-running-outline, #3b82f6);
+			box-shadow: 0 0 8px 2px var(--kaykay-node-running-outline, #3b82f680);
+		}
+	}
+
+	/* Status takes priority over selection */
+	.kaykay-node.selected.status-running {
+		outline-color: var(--kaykay-node-running-outline, #3b82f6);
+	}
+
+	.kaykay-node.selected.status-completed {
+		outline-color: var(--kaykay-node-completed-outline, #22c55e);
+	}
+
+	.kaykay-node.selected.status-error {
+		outline-color: var(--kaykay-node-error-outline, #ef4444);
 	}
 </style>

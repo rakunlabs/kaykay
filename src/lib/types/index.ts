@@ -112,6 +112,9 @@ export interface Viewport {
 	zoom: number;
 }
 
+// Node execution status for visual indicators
+export type NodeStatus = 'idle' | 'running' | 'completed' | 'error';
+
 // Props passed to custom node components
 export interface NodeProps<T = Record<string, unknown>> {
 	// Node ID
@@ -120,6 +123,8 @@ export interface NodeProps<T = Record<string, unknown>> {
 	data: T;
 	// Whether the node is selected
 	selected: boolean;
+	// Optional execution status for visual feedback
+	status?: NodeStatus;
 }
 
 // Connection being dragged

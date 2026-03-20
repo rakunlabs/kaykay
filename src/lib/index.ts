@@ -21,6 +21,7 @@ export type {
 	HandleState,
 	FlowNode,
 	NodeState,
+	NodeStatus,
 	EdgeType,
 	FlowEdge,
 	Flow,
