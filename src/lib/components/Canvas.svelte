@@ -54,6 +54,42 @@
 		return flow;
 	}
 
+	// Convert a client-space pointer position (e.g. from a drop or
+	// drag event) into a canvas-local position that accounts for the
+	// current pan + zoom. Callers that want to spawn a node where
+	// the user dropped a palette entry should pass MouseEvent.clientX
+	// and clientY here and use the result as the new node position.
+	//
+	// Returns null until the canvas has mounted (containerEl is set
+	// inside onMount). Drop handlers can fall back to (0,0) or to a
+	// "place at viewport centre" path in that case.
+	export function clientToCanvas(clientX: number, clientY: number): Position | null {
+		if (!containerEl) return null;
+		const rect = containerEl.getBoundingClientRect();
+		const relativeX = clientX - rect.left;
+		const relativeY = clientY - rect.top;
+		return {
+			x: (relativeX - flow.viewport.x) / flow.viewport.zoom,
+			y: (relativeY - flow.viewport.y) / flow.viewport.zoom,
+		};
+	}
+
+	// Read-only viewport accessor. Useful when a caller wants to do
+	// its own coordinate maths or render something aligned with the
+	// canvas zoom level (e.g. an overlay marker).
+	export function getViewport() {
+		return { x: flow.viewport.x, y: flow.viewport.y, zoom: flow.viewport.zoom };
+	}
+
+	// Expose the container element so callers can wire native
+	// HTML5 drag-and-drop events (ondragover / ondrop) onto the
+	// exact DOM node the canvas occupies. Without this, callers
+	// have to wrap the Canvas in their own positioned <div>, which
+	// fights the canvas's own pointer handling.
+	export function getContainer(): HTMLDivElement | null {
+		return containerEl ?? null;
+	}
+
 	let containerEl: HTMLDivElement;
 	let isPanning = $state(false);
 	let isSelecting = $state(false);
