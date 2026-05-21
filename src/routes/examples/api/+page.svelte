@@ -1,11 +1,61 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+
 	// API Reference page - documentation only, no canvas
+	let searchQuery = $state('');
+	let apiContent = $state<HTMLDivElement | null>(null);
+	let hasApiResults = $state(true);
+	const normalizedSearch = $derived(searchQuery.trim().toLowerCase());
+
+	$effect(() => {
+		const query = normalizedSearch;
+		if (!apiContent) return;
+
+		tick().then(() => {
+			if (!apiContent) return;
+
+			const entries = apiContent.querySelectorAll<HTMLElement>('.component, .type-def, .method-group');
+			for (const entry of entries) {
+				const text = entry.textContent?.toLowerCase() ?? '';
+				entry.classList.toggle('filtered-out', query.length > 0 && !text.includes(query));
+			}
+
+			const sections = apiContent.querySelectorAll<HTMLElement>('.api-section');
+			let has_visible_section = false;
+			for (const section of sections) {
+				const sectionEntries = section.querySelectorAll<HTMLElement>('.component, .type-def, .method-group');
+				const hasVisibleEntry = Array.from(sectionEntries).some((entry) => !entry.classList.contains('filtered-out'));
+				section.classList.toggle('filtered-out', query.length > 0 && sectionEntries.length > 0 && !hasVisibleEntry);
+				if (!section.classList.contains('filtered-out')) has_visible_section = true;
+			}
+
+			hasApiResults = query.length === 0 || has_visible_section;
+		});
+	});
 </script>
 
 <div class="api-page">
 	<h1>API Reference</h1>
 	<p class="intro">Complete reference for kaykay components, types, and configuration.</p>
+	<div class="api-search">
+		<label for="api-search">Search API</label>
+		<div class="api-search-row">
+			<input
+				id="api-search"
+				type="search"
+				bind:value={searchQuery}
+				placeholder="Canvas, FlowState, callbacks..."
+			/>
+			{#if searchQuery}
+				<button type="button" onclick={() => searchQuery = ''}>Clear</button>
+			{/if}
+		</div>
+	</div>
+	{#if normalizedSearch && !hasApiResults}
+		<p class="no-results">No API entries matched "{searchQuery}".</p>
+	{/if}
 
+	<div class="api-content" bind:this={apiContent}>
 	<section class="api-section">
 		<h2>Components</h2>
 		
@@ -19,6 +69,7 @@
   nodeTypes={nodeTypes}
   callbacks={callbacks}
   config={config}
+  node_statuses={nodeStatuses}
 >
   {#snippet background()}
     <!-- Custom background -->
@@ -66,6 +117,11 @@
 						<td>Optional configuration</td>
 					</tr>
 					<tr>
+						<td><code>node_statuses</code></td>
+						<td><code>Record&lt;string, NodeStatus&gt;?</code></td>
+						<td>Per-node execution status passed to custom node components</td>
+					</tr>
+					<tr>
 						<td><code>class</code></td>
 						<td><code>string?</code></td>
 						<td>Additional CSS class</td>
@@ -84,6 +140,68 @@
 						<td><code>children</code></td>
 						<td><code>Snippet?</code></td>
 						<td>Additional children (e.g., Minimap)</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="component">
+			<h3>Canvas Instance Methods</h3>
+			<p>Bind the Canvas component when you need imperative access, such as adding a node where a palette item is dropped.</p>
+			<div class="code-block">
+				<pre>{`let canvasRef: ReturnType<typeof Canvas> | undefined;
+
+function handleDrop(event: DragEvent) {
+  event.preventDefault();
+
+  const position = canvasRef?.clientToCanvas(
+    event.clientX,
+    event.clientY
+  );
+  if (!position) return;
+
+  const node: FlowNode = {
+    id: crypto.randomUUID(),
+    type: 'custom',
+    position,
+    data: { label: 'Dropped node' }
+  };
+
+  canvasRef?.getFlow().addNode(node);
+}
+
+<div ondragover={(event) => event.preventDefault()} ondrop={handleDrop}>
+  <Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} />
+</div>`}</pre>
+			</div>
+			<table class="props-table">
+				<thead>
+					<tr>
+						<th>Method</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>getFlow()</code></td>
+						<td><code>() =&gt; FlowState</code></td>
+						<td>Returns the internal flow state for adding nodes, edges, viewport changes, and serialization.</td>
+					</tr>
+					<tr>
+						<td><code>clientToCanvas()</code></td>
+						<td><code>(x: number, y: number) =&gt; Position | null</code></td>
+						<td>Converts browser client coordinates to canvas coordinates, including current pan and zoom.</td>
+					</tr>
+					<tr>
+						<td><code>getViewport()</code></td>
+						<td><code>() =&gt; Viewport</code></td>
+						<td>Returns the current viewport values.</td>
+					</tr>
+					<tr>
+						<td><code>getContainer()</code></td>
+						<td><code>() =&gt; HTMLDivElement | null</code></td>
+						<td>Returns the canvas container element for wiring native browser events.</td>
 					</tr>
 				</tbody>
 			</table>
@@ -170,7 +288,7 @@ const nodeTypes = {
 
 		<div class="component">
 			<h3>Minimap</h3>
-			<p>Optional minimap for navigation. Click or drag to pan viewport.</p>
+			<p>Optional minimap for navigation. Click, drag, touch, or keyboard arrows to pan viewport.</p>
 			<div class="code-block">
 				<pre>{`<Canvas {nodes} {edges} {nodeTypes}>
   {#snippet children()}
@@ -206,6 +324,11 @@ const nodeTypes = {
 						<td><code>nodeColor</code></td>
 						<td><code>string?</code></td>
 						<td>Node rectangle color override</td>
+					</tr>
+					<tr>
+						<td><code>selectedNodeColor</code></td>
+						<td><code>string?</code></td>
+						<td>Selected node rectangle color override</td>
 					</tr>
 					<tr>
 						<td><code>viewportColor</code></td>
@@ -316,6 +439,7 @@ const nodeTypes = {
   id: string;
   data: T;
   selected: boolean;
+  status?: NodeStatus;
 }`}</pre>
 			</div>
 		</div>
@@ -331,6 +455,10 @@ const nodeTypes = {
   on_edge_click?: (edge_id: string) => void;
   on_delete?: (node_ids: string[], edge_ids: string[]) => void;
   on_viewport_change?: (viewport: Viewport) => void;
+  on_selection_change?: (node_ids: string[], edge_ids: string[]) => void;
+  on_undo?: () => void;
+  on_redo?: () => void;
+  on_change?: (flow: Flow, reason: FlowChangeReason) => void;
 }`}</pre>
 			</div>
 		</div>
@@ -342,10 +470,15 @@ const nodeTypes = {
   min_zoom?: number;      // Default: 0.1
   max_zoom?: number;      // Default: 4
   snap_to_grid?: boolean; // Default: false
-  grid_size?: number;     // Default: 20
+  grid_size?: number;     // Default: 10
   allow_delete?: boolean; // Default: true
   default_edge_type?: EdgeType;
   locked?: boolean;       // Prevent modifications
+  max_history?: number;   // Default: 50
+  max_connections_per_input?: number;
+  max_connections_per_output?: number;
+  prevent_cycles?: boolean;
+  is_valid_connection?: (context: ConnectionValidationContext) => ConnectionValidationResult;
 }`}</pre>
 			</div>
 		</div>
@@ -358,15 +491,17 @@ const nodeTypes = {
 		<div class="method-group">
 			<h3>Node Operations</h3>
 			<div class="code-block">
-				<pre>{`flow.addNode(node: FlowNode): void
+				<pre>{`flow.addNode(node: FlowNode): string
 flow.removeNode(nodeId: string): void
 flow.getNode(nodeId: string): NodeState | undefined
 flow.updateNodePosition(nodeId: string, position: Position): void
 flow.updateNodeData(nodeId: string, data: Partial<T>): void
 flow.updateNodeDimensions(nodeId: string, width: number, height: number): void
+flow.resizeNode(nodeId: string, width: number, height: number): void
 flow.getChildNodes(parentId: string): NodeState[]
 flow.getAbsolutePosition(nodeId: string): Position
-flow.setNodeParent(nodeId: string, parentId: string | undefined): void`}</pre>
+flow.setNodeParent(nodeId: string, parentId: string | undefined): void
+flow.updateGroupMembership(groupId: string): void`}</pre>
 			</div>
 		</div>
 
@@ -377,6 +512,9 @@ flow.setNodeParent(nodeId: string, parentId: string | undefined): void`}</pre>
 flow.removeEdge(edgeId: string): void
 flow.getEdge(edgeId: string): FlowEdge | undefined
 flow.updateEdge(edgeId: string, updates: Partial<FlowEdge>): void
+flow.canConnect(sourceNodeId: string, sourceHandleId: string, targetNodeId: string, targetHandleId: string): boolean
+flow.getConnectionValidation(sourceNodeId: string, sourceHandleId: string, targetNodeId: string, targetHandleId: string): { valid: boolean; reason?: string }
+flow.canConnectPorts(sourcePort: string, targetPort: string, targetAccept?: string[]): boolean
 
 // Waypoints for custom edge routing
 flow.addEdgeWaypoint(edgeId: string, position: Position, index?: number): void
@@ -391,6 +529,7 @@ flow.clearEdgeWaypoints(edgeId: string): void`}</pre>
 			<div class="code-block">
 				<pre>{`flow.selectNode(nodeId: string, additive?: boolean): void
 flow.selectEdge(edgeId: string, additive?: boolean): void
+flow.selectAll(): void
 flow.clearSelection(): void
 flow.deleteSelected(): void
 
@@ -411,6 +550,8 @@ flow.zoomOut(step?: number): void
 flow.resetZoom(): void
 flow.setZoom(zoom: number): void
 flow.fitView(padding?: number): void
+flow.screenToCanvas(screenPos: Position): Position
+flow.canvasToScreen(canvasPos: Position): Position
 
 // Read viewport state
 flow.viewport: Viewport  // { x, y, zoom }`}</pre>
@@ -435,6 +576,21 @@ flow.getHandlePosition(nodeId: string, handleId: string): Position | undefined`}
 		</div>
 
 		<div class="method-group">
+			<h3>History and Clipboard</h3>
+			<div class="code-block">
+				<pre>{`flow.undo(): boolean
+flow.redo(): boolean
+flow.canUndo: boolean
+flow.canRedo: boolean
+flow.clearHistory(): void
+flow.beginTransaction(): void
+flow.endTransaction(commit?: boolean, reason?: FlowChangeReason): void
+flow.copySelected(): void
+flow.paste(position?: Position, clipboardData?: { nodes: FlowNode[]; edges: FlowEdge[] }): void`}</pre>
+			</div>
+		</div>
+
+		<div class="method-group">
 			<h3>Import/Export</h3>
 			<div class="code-block">
 				<pre>{`const json: Flow = flow.toJSON()
@@ -442,6 +598,7 @@ flow.fromJSON(json: Flow): void`}</pre>
 			</div>
 		</div>
 	</section>
+	</div>
 </div>
 
 <style>
@@ -465,6 +622,78 @@ flow.fromJSON(json: Flow): void`}</pre>
 		margin: 0 0 32px 0;
 		color: #888;
 		font-size: 1.1rem;
+	}
+
+	.api-search {
+		position: sticky;
+		top: 0;
+		z-index: 5;
+		margin: 0 0 32px 0;
+		padding: 14px;
+		background: rgba(22, 22, 24, 0.92);
+		border: 1px solid #1f1f1f;
+		border-radius: 10px;
+		backdrop-filter: blur(10px);
+	}
+
+	:global(.kaykay-light) .api-search {
+		background: rgba(255, 255, 255, 0.92);
+		border-color: #e0e0e0;
+	}
+
+	.api-search label {
+		display: block;
+		margin-bottom: 8px;
+		color: #888;
+		font-size: 0.8rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.api-search-row {
+		display: flex;
+		gap: 8px;
+	}
+
+	.api-search input {
+		flex: 1;
+		min-width: 0;
+		padding: 11px 12px;
+		background: #1f1f1f;
+		border: 1px solid #252422;
+		border-radius: 7px;
+		color: #fff;
+		font-family: inherit;
+	}
+
+	.api-search button {
+		padding: 0 12px;
+		background: #eb5425;
+		border: 1px solid #eb5425;
+		border-radius: 7px;
+		color: #fff;
+		font-family: inherit;
+		font-weight: 700;
+		cursor: pointer;
+	}
+
+	:global(.kaykay-light) .api-search input {
+		background: #f5f5f5;
+		border-color: #e0e0e0;
+		color: #333;
+	}
+
+	:global(.filtered-out) {
+		display: none !important;
+	}
+
+	.no-results {
+		margin: -12px 0 32px 0;
+		padding: 14px 16px;
+		background: rgba(235, 84, 37, 0.1);
+		border: 1px solid rgba(235, 84, 37, 0.3);
+		border-radius: 8px;
+		color: #f6a21a;
 	}
 
 	.api-section {

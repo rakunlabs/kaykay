@@ -13,9 +13,12 @@ src/routes/
 ├── examples/
 │   ├── getting-started/   # Getting started guide
 │   ├── basic-nodes/       # Basic node examples
+│   ├── drag-drop/         # Palette drag-and-drop example
 │   ├── connections/       # Edge/connection examples
 │   ├── groups/            # Group node examples
 │   ├── styling/           # Styling examples
+│   ├── state-history/     # Undo/redo, clipboard, status, and JSON examples
+│   ├── blender-style/     # Blender Geometry Nodes-inspired theme
 │   ├── touch/             # Touch support examples
 │   ├── api/               # API reference
 │   └── nodes/             # Shared custom node components
@@ -33,6 +36,7 @@ interface NodeProps<T = Record<string, unknown>> {
   id: string;        // Unique node identifier
   data: T;           // Custom data for your node
   selected: boolean; // Whether the node is currently selected
+  status?: NodeStatus; // Optional execution status
 }
 ```
 
@@ -40,7 +44,7 @@ Example node component:
 
 ```svelte
 <script lang="ts">
-  import Handle from 'kaykay';
+  import { Handle } from 'kaykay';
   import type { NodeProps } from 'kaykay';
 
   let { id, data, selected }: NodeProps<{ label: string }> = $props();
@@ -190,17 +194,60 @@ Connections are validated based on port types:
 <Canvas {nodes} {edges} {nodeTypes} {config} {callbacks} />
 ```
 
+## Drag & Drop Node Palette
+
+Canvas exposes helpers that make native HTML drag-and-drop work with pan and zoom. Use `clientToCanvas` to convert the drop event's browser coordinates into a node position, then add the node through `getFlow()`.
+
+```svelte
+<script lang="ts">
+  import { Canvas } from 'kaykay';
+  import type { FlowNode } from 'kaykay';
+
+  let canvasRef: ReturnType<typeof Canvas> | undefined;
+
+  function handleDragStart(event: DragEvent, type: string) {
+    event.dataTransfer?.setData('application/x-kaykay-node', type);
+  }
+
+  function handleDrop(event: DragEvent) {
+    event.preventDefault();
+
+    const type = event.dataTransfer?.getData('application/x-kaykay-node');
+    const position = canvasRef?.clientToCanvas(event.clientX, event.clientY);
+    if (!type || !position) return;
+
+    const node: FlowNode = {
+      id: crypto.randomUUID(),
+      type,
+      position,
+      data: { label: 'Dropped node' }
+    };
+
+    canvasRef?.getFlow().addNode(node);
+  }
+</script>
+
+<button draggable="true" ondragstart={(event) => handleDragStart(event, 'custom')}>
+  Custom Node
+</button>
+
+<div ondragover={(event) => event.preventDefault()} ondrop={handleDrop}>
+  <Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} />
+</div>
+```
+
 ## User Interactions
 
 The Canvas provides these built-in interactions:
 
-- **Pan**: Click and drag on empty space (or middle mouse button)
-- **Zoom**: Mouse wheel
+- **Pan**: Click and drag on empty space, middle mouse button, or normal wheel/trackpad scroll
+- **Zoom**: Ctrl/Meta + mouse wheel
 - **Select**: Click on nodes or edges (Shift+click for multi-select)
+- **Selection Rectangle**: Ctrl/Meta+drag empty space to toggle nodes, Shift+drag to add, Alt+drag to subtract
 - **Delete**: Select items and press Delete or Backspace
 - **Connect**: Click and drag from an output handle to an input handle
 - **Move Nodes**: Click and drag nodes
-- **Edge Waypoints**: Ctrl+click on an edge to add a waypoint, drag waypoints to reposition, right-click to remove
+- **Edge Waypoints**: Ctrl/Meta+click on an edge to add a waypoint, drag waypoints to reposition, Ctrl/Meta+click a waypoint to remove it
 
 ## Styling Custom Nodes
 
@@ -212,6 +259,47 @@ Use global styles or scoped styles in your node components. Selected nodes autom
   box-shadow: 0 0 0 2px #eb5425;
 }
 ```
+
+## Blender-Style Edge Sockets
+
+Handles can be aligned with node rows while sitting on the node border. This is useful for Blender Geometry Nodes-style UIs where each label or field has a matching input/output socket.
+
+```svelte
+<div class="node-row">
+  <Handle id="radius" type="input" port="float" position="left" class="inline-socket">
+    <span class="circle-socket"></span>
+  </Handle>
+  <span>Radius</span>
+  <input type="number" value="0.05" data-kaykay-no-drag />
+</div>
+
+<style>
+  :global(.inline-socket.kaykay-handle) {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    margin: 0 !important;
+    width: 10px;
+    height: 10px;
+  }
+
+  .circle-socket {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #b4b4b4;
+  }
+</style>
+```
+
+Use the `Handle` children snippet to draw custom socket shapes such as circles, squares, diamonds, triangles, or diagonal markers.
+
+Use `data-kaykay-no-drag` on form controls or custom interactive elements inside nodes so users can edit values without starting a node drag.
+
+Fields are usually fallback values. For example, a `Selection` checkbox can be used when nothing is connected; if a boolean edge is connected to that socket, your flow evaluation should use the connected input value instead. kaykay stores and validates the graph, but your application decides how connected values override local fields.
+
+For Blender-like behavior, add a small button in the title bar for collapse/expand and resize handles on the left/right edges. Resize width only; keep height controlled by the content.
 
 ## Data Flow
 

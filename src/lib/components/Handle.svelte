@@ -37,12 +37,14 @@
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
 
 	// Get node ID from parent node element
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let handleEl: HTMLDivElement;
 	let node_id = $state<string>('');
 	let handle_offset = $state<Position>({ x: 0, y: 0 }); // Offset within node
 	let isInGroup = $state(false);
 	let isInitialized = $state(false);
-	let effectivePosition = $state<HandlePosition>(positionProp ?? (type === 'input' ? 'left' : 'right'));
+	let groupPosition = $state<HandlePosition | undefined>(undefined);
+	const effectivePosition = $derived(groupPosition ?? positionProp ?? (type === 'input' ? 'left' : 'right'));
 
 	onMount(() => {
 		// Check if inside a HandleGroup and get its position
@@ -51,9 +53,9 @@
 		
 		// If in a group, use the group's position unless explicitly set
 		if (groupEl && !positionProp) {
-			const groupPosition = groupEl.getAttribute('data-handle-group') as HandlePosition;
-			if (groupPosition) {
-				effectivePosition = groupPosition;
+			const detectedGroupPosition = groupEl.getAttribute('data-handle-group') as HandlePosition;
+			if (detectedGroupPosition) {
+				groupPosition = detectedGroupPosition;
 			}
 		}
 
@@ -65,8 +67,8 @@
 			// Use requestAnimationFrame to ensure layout is complete before calculating offset
 			// This is especially important for handles inside HandleGroup (flexbox needs a frame)
 			requestAnimationFrame(() => {
-				calculateHandleOffset();
-				registerHandle();
+				const offset = updateHandleOffset();
+				registerHandle(offset ?? undefined);
 				isInitialized = true;
 			});
 		}
@@ -78,24 +80,32 @@
 		}
 	});
 
-	function calculateHandleOffset() {
-		if (!handleEl) return;
+	function calculateHandleOffset(): Position | null {
+		if (!handleEl) return null;
 
 		const nodeEl = handleEl.closest('[data-node-id]') as HTMLElement;
-		if (!nodeEl) return;
+		if (!nodeEl) return null;
 
 		const handleRect = handleEl.getBoundingClientRect();
 		const nodeRect = nodeEl.getBoundingClientRect();
 
 		// Calculate handle center relative to node (in screen pixels, then divide by zoom)
-		handle_offset = {
+		return {
 			x: (handleRect.left + handleRect.width / 2 - nodeRect.left) / flow.viewport.zoom,
 			y: (handleRect.top + handleRect.height / 2 - nodeRect.top) / flow.viewport.zoom,
 		};
 	}
 
-	function registerHandle() {
-		const absolute_position = getAbsolutePosition();
+	function updateHandleOffset(): Position | null {
+		const offset = calculateHandleOffset();
+		if (offset) {
+			handle_offset = offset;
+		}
+		return offset;
+	}
+
+	function registerHandle(offset: Position = handle_offset) {
+		const absolute_position = getAbsolutePosition(offset);
 		flow.registerHandle(node_id, {
 			id,
 			type,
@@ -109,7 +119,7 @@
 		flow.updateHandlePosition(node_id, id, absolute_position);
 	}
 
-	function getAbsolutePosition(): Position {
+	function getAbsolutePosition(offset: Position = handle_offset): Position {
 		const node = flow.getNode(node_id);
 		if (!node) return { x: 0, y: 0 };
 
@@ -118,8 +128,8 @@
 
 		// Use cached offset + absolute node position
 		return {
-			x: nodeAbsolutePos.x + handle_offset.x,
-			y: nodeAbsolutePos.y + handle_offset.y,
+			x: nodeAbsolutePos.x + offset.x,
+			y: nodeAbsolutePos.y + offset.y,
 		};
 	}
 
@@ -133,6 +143,8 @@
 		// Track node position to trigger recalculation
 		void node.position.x;
 		void node.position.y;
+		void node.computed_width;
+		void node.computed_height;
 		
 		// Also track parent position if node has a parent
 		if (node.parent_id) {
@@ -143,27 +155,40 @@
 			}
 		}
 
-		const absolute_position = getAbsolutePosition();
+		const offset = calculateHandleOffset();
+		if (!offset) return;
+
+		handle_offset = offset;
+		const absolute_position = getAbsolutePosition(offset);
 		flow.updateHandlePosition(node_id, id, absolute_position);
+	});
+
+	const connection_validation = $derived.by(() => {
+		if (!flow.draft_connection) return false;
+		if (type !== 'input') return false;
+		if (flow.draft_connection.source_node_id === node_id) return false;
+
+		return flow.getConnectionValidation(
+			flow.draft_connection.source_node_id,
+			flow.draft_connection.source_handle_id,
+			node_id,
+			id
+		);
 	});
 
 	// Check if this handle can accept current draft connection
 	const can_accept_connection = $derived.by(() => {
-		if (!flow.draft_connection) return false;
-		if (type !== 'input') return false;
-		if (flow.draft_connection.source_node_id === node_id) return false;
-
-		return flow.canConnectPorts(flow.draft_connection.source_port, port, accept);
+		return !!connection_validation && connection_validation.valid;
 	});
 
 	// Check if this handle is incompatible with current draft connection
 	const is_incompatible = $derived.by(() => {
-		if (!flow.draft_connection) return false;
-		if (type !== 'input') return false;
-		if (flow.draft_connection.source_node_id === node_id) return false;
-
-		return !flow.canConnectPorts(flow.draft_connection.source_port, port, accept);
+		return !!connection_validation && !connection_validation.valid;
 	});
+
+	const accessibleLabel = $derived(
+		`${type} handle ${id} (${port})${connection_validation && !connection_validation.valid ? `: ${connection_validation.reason}` : ''}`
+	);
 
 	// Check if this output handle should be disabled (when a draft connection is active)
 	const is_output_disabled = $derived.by(() => {
@@ -181,8 +206,8 @@
 		e.stopPropagation();
 
 		// Recalculate offset before starting connection (in case layout changed)
-		calculateHandleOffset();
-		const absolute_position = getAbsolutePosition();
+		const offset = updateHandleOffset() ?? handle_offset;
+		const absolute_position = getAbsolutePosition(offset);
 		flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
 	}
 
@@ -209,8 +234,29 @@
 
 		// If no draft connection and this is an output handle, start one
 		if (!flow.draft_connection && type === 'output') {
-			calculateHandleOffset();
-			const absolute_position = getAbsolutePosition();
+			const offset = updateHandleOffset() ?? handle_offset;
+			const absolute_position = getAbsolutePosition(offset);
+			flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
+		}
+	}
+
+	function handleKeyDown(e: KeyboardEvent) {
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+		if (flow.locked) return;
+
+		e.preventDefault();
+		e.stopPropagation();
+
+		if (flow.draft_connection && type === 'input') {
+			if (flow.draft_connection.source_node_id !== node_id) {
+				flow.finishConnection(node_id, id);
+			}
+			return;
+		}
+
+		if (!flow.draft_connection && type === 'output') {
+			const offset = updateHandleOffset() ?? handle_offset;
+			const absolute_position = getAbsolutePosition(offset);
 			flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
 		}
 	}
@@ -235,8 +281,8 @@
 
 		// If no draft connection and this is an output handle, start one
 		if (!flow.draft_connection && type === 'output') {
-			calculateHandleOffset();
-			const absolute_position = getAbsolutePosition();
+			const offset = updateHandleOffset() ?? handle_offset;
+			const absolute_position = getAbsolutePosition(offset);
 			flow.startConnection(node_id, id, port, effectivePosition, absolute_position);
 		}
 	}
@@ -284,11 +330,14 @@
 	onmousedown={handleMouseDown}
 	onmouseup={handleMouseUp}
 	onclick={handleClick}
+	onkeydown={handleKeyDown}
 	onmouseenter={handleMouseEnter}
 	ontouchstart={handleTouchStart}
 	ontouchend={handleTouchEnd}
 	role="button"
-	tabindex="-1"
+	tabindex="0"
+	aria-label={accessibleLabel}
+	aria-disabled={flow.locked || is_output_disabled}
 	data-handle-id={id}
 	data-handle-type={type}
 	data-handle-port={port}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import type { NodeProps } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 
@@ -38,6 +38,9 @@
 	function handleLabelDoubleClick(e: MouseEvent) {
 		if (flow.locked) return;
 		e.stopPropagation();
+		if (!isEditing) {
+			flow.beginTransaction();
+		}
 		isEditing = true;
 		// Focus input after it renders
 		requestAnimationFrame(() => {
@@ -48,14 +51,17 @@
 
 	function handleLabelBlur() {
 		isEditing = false;
+		flow.endTransaction(true, 'node:data');
 	}
 
 	function handleLabelKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			isEditing = false;
+			flow.endTransaction(true, 'node:data');
 		}
 		if (e.key === 'Escape') {
 			isEditing = false;
+			flow.endTransaction(true, 'node:data');
 		}
 		// Stop propagation to prevent node deletion on Backspace
 		e.stopPropagation();
@@ -72,6 +78,7 @@
 		e.preventDefault();
 
 		isResizing = true;
+		flow.beginTransaction();
 		resizeStartPos = { x: e.clientX, y: e.clientY };
 		
 		const node = flow.getNode(id);
@@ -101,6 +108,7 @@
 	function handleResizeMouseUp() {
 		isResizing = false;
 		flow.updateGroupMembership(id);
+		flow.endTransaction(true, 'node:resize');
 		window.removeEventListener('mousemove', handleResizeMouseMove);
 		window.removeEventListener('mouseup', handleResizeMouseUp);
 	}
@@ -125,6 +133,17 @@
 		window.removeEventListener('click', closeContextMenu);
 		window.removeEventListener('contextmenu', closeContextMenu);
 	}
+
+	onDestroy(() => {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('mousemove', handleResizeMouseMove);
+		window.removeEventListener('mouseup', handleResizeMouseUp);
+		window.removeEventListener('click', closeContextMenu);
+		window.removeEventListener('contextmenu', closeContextMenu);
+		if (isResizing || isEditing) {
+			flow.endTransaction(true, isResizing ? 'node:resize' : 'node:data');
+		}
+	});
 
 	function setGroupColor(color: string) {
 		flow.updateNodeData(id, { color });
@@ -281,8 +300,7 @@
 	}
 
 	/* Dark mode - via class */
-	:global(.kaykay-dark) .kaykay-group-node,
-	.kaykay-group-node.kaykay-dark {
+	:global(.kaykay-dark) .kaykay-group-node {
 		--kaykay-group-bg: rgba(100, 100, 120, 0.15);
 		--kaykay-group-border: #777;
 		--kaykay-group-label-color: #aaa;

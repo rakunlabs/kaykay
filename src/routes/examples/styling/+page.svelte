@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
+	import { cloneFlowEdges, cloneFlowNodes } from '../example-utils.js';
 	import GradientNode from './GradientNode.svelte';
 	import GlassNode from './GlassNode.svelte';
 	import NeonNode from './NeonNode.svelte';
@@ -10,7 +12,7 @@
 	import CustomHandleNode from './CustomHandleNode.svelte';
 
 	// Custom styled nodes
-	let nodes: FlowNode[] = $state([
+	const initialNodes: FlowNode[] = [
 		{ id: 'gradient', type: 'gradient', position: { x: 50, y: 50 }, data: { label: 'Gradient Node' } },
 		{ id: 'glass', type: 'glass', position: { x: 300, y: 50 }, data: { label: 'Glass Effect' } },
 		{ id: 'neon', type: 'neon', position: { x: 550, y: 50 }, data: { label: 'Neon Glow' } },
@@ -18,14 +20,18 @@
 		{ id: 'rounded', type: 'rounded', position: { x: 300, y: 200 }, data: { label: 'Rounded' } },
 		{ id: 'shadow', type: 'shadow', position: { x: 550, y: 200 }, data: { label: 'Deep Shadow' } },
 		{ id: 'custom-handles', type: 'custom-handles', position: { x: 250, y: 350 }, data: { label: 'Custom Handles' } },
-	]);
+	];
 
-	let edges: FlowEdge[] = $state([
+	const initialEdges: FlowEdge[] = [
 		{ id: 'e1', source: 'gradient', source_handle: 'out', target: 'glass', target_handle: 'in', color: '#8b5cf6' },
 		{ id: 'e2', source: 'glass', source_handle: 'out', target: 'neon', target_handle: 'in', color: '#22c55e', animated: true },
 		{ id: 'e3', source: 'minimal', source_handle: 'out', target: 'rounded', target_handle: 'in', style: 'dashed' },
 		{ id: 'e4', source: 'rounded', source_handle: 'out', target: 'shadow', target_handle: 'in', type: 'step' },
-	]);
+	];
+
+	let nodes: FlowNode[] = $state(cloneFlowNodes(initialNodes));
+	let edges: FlowEdge[] = $state(cloneFlowEdges(initialEdges));
+	let canvasKey = $state(0);
 
 	const nodeTypes: NodeTypes = {
 		'gradient': GradientNode,
@@ -46,12 +52,19 @@
 			edges = edges.filter(e => !edgeIds.includes(e.id));
 		}
 	};
+
+	function resetExample(): void {
+		nodes = cloneFlowNodes(initialNodes);
+		edges = cloneFlowEdges(initialEdges);
+		canvasKey += 1;
+	}
 </script>
 
 <div class="example-page">
 	<div class="example-sidebar">
 		<h1>Styling & Theming</h1>
 		<p>Customize the look and feel of your flow diagrams with CSS.</p>
+		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/styling/+page.svelte" />
 
 		<div class="section">
 			<h3>Theme Support</h3>
@@ -150,7 +163,9 @@
 	</div>
 
 	<div class="example-canvas">
-		<Canvas {nodes} {edges} {nodeTypes} {callbacks} />
+		{#key canvasKey}
+			<Canvas {nodes} {edges} {nodeTypes} {callbacks} />
+		{/key}
 	</div>
 </div>
 

@@ -3,11 +3,25 @@
 	import { resolve, asset } from '$app/paths';
 	
 	let activeTab: "npm" | "pnpm" = $state("pnpm");
+	let copyLabel = $state("Copy");
 
 	const installCommands = {
 		npm: "npm install kaykay",
 		pnpm: "pnpm add kaykay",
 	};
+
+	async function copyInstallCommand(): Promise<void> {
+		try {
+			await navigator.clipboard.writeText(installCommands[activeTab]);
+			copyLabel = "Copied";
+		} catch {
+			copyLabel = "Failed";
+		}
+
+		setTimeout(() => {
+			copyLabel = "Copy";
+		}, 1200);
+	}
 </script>
 
 <div class="about-page">
@@ -30,19 +44,30 @@
 		<h2><span class="section-prefix">#</span> Installation</h2>
 		<div class="code-block terminal">
 			<div class="code-tabs">
-				<button
-					class="tab"
-					class:active={activeTab === "pnpm"}
-					onclick={() => (activeTab = "pnpm")}>pnpm</button
-				>
-				<button
-					class="tab"
-					class:active={activeTab === "npm"}
-					onclick={() => (activeTab = "npm")}>npm</button
-				>
+				<div class="tab-list">
+					<button
+						class="tab"
+						class:active={activeTab === "pnpm"}
+						onclick={() => (activeTab = "pnpm")}>pnpm</button
+					>
+					<button
+						class="tab"
+						class:active={activeTab === "npm"}
+						onclick={() => (activeTab = "npm")}>npm</button
+					>
+				</div>
+				<button class="copy-btn" type="button" onclick={copyInstallCommand}>{copyLabel}</button>
 			</div>
 			<pre><span style="user-select: none;">{'$ '}</span><span class="output">{installCommands[activeTab]}</span></pre>
 		</div>
+		<a
+			href="https://www.npmjs.com/package/kaykay"
+			target="_blank"
+			rel="noreferrer"
+			class="install-link"
+		>
+			<span class="comment">//</span> View package on npm
+		</a>
 	</section>
 
 	<section class="features-section">
@@ -327,8 +352,14 @@
 
 	.code-tabs {
 		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		background: #1a1a1a;
 		border-bottom: 1px solid #333;
+	}
+
+	.tab-list {
+		display: flex;
 	}
 
 	.tab {
@@ -353,6 +384,23 @@
 		background: rgba(74, 158, 255, 0.05);
 	}
 
+	.copy-btn {
+		margin-right: 8px;
+		padding: 6px 10px;
+		background: transparent;
+		border: 1px solid #333;
+		border-radius: 4px;
+		color: #eb5425;
+		font-family: inherit;
+		font-size: 0.78rem;
+		cursor: pointer;
+	}
+
+	.copy-btn:hover {
+		background: rgba(235, 84, 37, 0.12);
+		border-color: #eb5425;
+	}
+
 	.code-block pre {
 		margin: 0;
 		padding: 16px;
@@ -364,6 +412,20 @@
 
 	.code-block .output {
 		color: #fff;
+	}
+
+	.install-link {
+		display: inline-flex;
+		gap: 8px;
+		align-items: center;
+		margin-top: 4px;
+		color: #eb5425;
+		font-size: 0.85rem;
+		text-decoration: none;
+	}
+
+	.install-link:hover {
+		text-decoration: underline;
 	}
 
 	/* Syntax highlighting */
@@ -382,10 +444,6 @@
 	.tag {
 		color: #ff79c6;
 	}
-	.attr {
-		color: #50fa7b;
-	}
-
 	/* Features */
 	.features-grid {
 		display: grid;
@@ -553,6 +611,10 @@
 		background: rgba(37, 99, 235, 0.05);
 	}
 
+	:global(.kaykay-light) .copy-btn {
+		border-color: #ddd;
+	}
+
 	:global(.kaykay-light) .code-block pre,
 	:global(.kaykay-light) .code-block .output {
 		color: #fff;
@@ -578,10 +640,6 @@
 	:global(.kaykay-light) .tag {
 		color: #db2777;
 	}
-	:global(.kaykay-light) .attr {
-		color: #16a34a;
-	}
-
 	:global(.kaykay-light) .feature {
 		background: #fff;
 		border-color: #ddd;

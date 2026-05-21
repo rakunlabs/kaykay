@@ -16,6 +16,7 @@
 	import MultiHandleNode from '../examples/nodes/MultiHandleNode.svelte';
 
 	// Reference to canvas component
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let canvasRef: ReturnType<typeof Canvas> | undefined;
 
 	// Define initial nodes with diverse node types
@@ -297,6 +298,7 @@
 	}
 
 	// Hidden file input reference
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let fileInput: HTMLInputElement;
 
 	// Import flow from JSON file

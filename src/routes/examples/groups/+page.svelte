@@ -2,11 +2,14 @@
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import GroupNode from '../../../lib/components/GroupNode.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
+	import { cloneFlowEdges, cloneFlowNodes } from '../example-utils.js';
 	import SimpleNode from '../nodes/SimpleNode.svelte';
 
-	let canvasRef: ReturnType<typeof Canvas> | undefined;
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
+	let canvasRef = $state<ReturnType<typeof Canvas> | undefined>();
 
-	let nodes: FlowNode[] = $state([
+	const initialNodes: FlowNode[] = [
 		// Input Group
 		{
 			id: 'group-inputs',
@@ -60,13 +63,17 @@
 			position: { x: 350, y: 270 },
 			data: { label: 'Drag me into a group!' }
 		},
-	]);
+	];
 
-	let edges: FlowEdge[] = $state([
+	const initialEdges: FlowEdge[] = [
 		{ id: 'e1', source: 'input-1', source_handle: 'out', target: 'process-1', target_handle: 'in' },
 		{ id: 'e2', source: 'input-2', source_handle: 'out', target: 'process-1', target_handle: 'in' },
 		{ id: 'e3', source: 'process-1', source_handle: 'out', target: 'output-1', target_handle: 'in' },
-	]);
+	];
+
+	let nodes: FlowNode[] = $state(cloneFlowNodes(initialNodes));
+	let edges: FlowEdge[] = $state(cloneFlowEdges(initialEdges));
+	let canvasKey = $state(0);
 
 	const nodeTypes: NodeTypes = {
 		'group': GroupNode,
@@ -113,12 +120,19 @@
 		};
 		flow.addNode(newNode);
 	}
+
+	function resetExample(): void {
+		nodes = cloneFlowNodes(initialNodes);
+		edges = cloneFlowEdges(initialEdges);
+		canvasKey += 1;
+	}
 </script>
 
 <div class="example-page">
 	<div class="example-sidebar">
 		<h1>Groups</h1>
 		<p>Organize nodes into visual groups for better flow management.</p>
+		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/groups/+page.svelte" />
 
 		<div class="button-row">
 			<button class="action-btn" onclick={addGroup}>Add Group</button>
@@ -207,7 +221,9 @@ const nodeTypes = {
 	</div>
 
 	<div class="example-canvas">
-		<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} {callbacks} />
+		{#key canvasKey}
+			<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} {callbacks} />
+		{/key}
 	</div>
 </div>
 

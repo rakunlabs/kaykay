@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
+	import { getContext, onDestroy, onMount } from 'svelte';
 	import type { FlowState } from '../stores/flow.svelte.js';
 
 	interface Props {
@@ -11,6 +11,8 @@
 		backgroundColor?: string;
 		// Color of the nodes in the minimap
 		nodeColor?: string;
+		// Color of selected nodes in the minimap
+		selectedNodeColor?: string;
 		// Color of the viewport indicator
 		viewportColor?: string;
 		// Additional CSS class
@@ -22,6 +24,7 @@
 		height = 150,
 		backgroundColor,
 		nodeColor,
+		selectedNodeColor,
 		viewportColor,
 		class: className = '',
 	}: Props = $props();
@@ -29,6 +32,7 @@
 	// Use CSS variables with fallbacks
 	const bgColor = $derived(backgroundColor ?? 'var(--kaykay-minimap-bg, rgba(0, 0, 0, 0.8))');
 	const nodeFillColor = $derived(nodeColor ?? 'var(--kaykay-minimap-node, #eb5425)');
+	const selectedNodeFillColor = $derived(selectedNodeColor ?? 'var(--kaykay-minimap-node-selected, #f6a21a)');
 	const viewportFillColor = $derived(viewportColor ?? 'var(--kaykay-minimap-viewport, rgba(74, 158, 255, 0.3))');
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
@@ -37,6 +41,7 @@
 	// Track canvas container size
 	let canvasWidth = $state(800);
 	let canvasHeight = $state(600);
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let minimapEl: HTMLDivElement;
 
 	onMount(() => {
@@ -152,6 +157,30 @@
 	}
 
 	let isDragging = $state(false);
+	let activePointerId = $state<number | null>(null);
+
+	function handlePointerDown(e: PointerEvent) {
+		if (e.button !== 0) return;
+		e.preventDefault();
+		activePointerId = e.pointerId;
+		isDragging = true;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		handleMinimapClick(e.clientX - rect.left, e.clientY - rect.top);
+	}
+
+	function handlePointerMove(e: PointerEvent) {
+		if (!isDragging || activePointerId !== e.pointerId || !minimapEl) return;
+		const rect = minimapEl.getBoundingClientRect();
+		handleMinimapClick(e.clientX - rect.left, e.clientY - rect.top);
+	}
+
+	function handlePointerUp(e: PointerEvent) {
+		if (activePointerId !== e.pointerId) return;
+		isDragging = false;
+		activePointerId = null;
+		(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+	}
 
 	function handleMouseDown(e: MouseEvent) {
 		isDragging = true;
@@ -210,17 +239,57 @@
 		window.removeEventListener('touchend', handleTouchEnd);
 		window.removeEventListener('touchcancel', handleTouchCancel);
 	}
+
+	function handleKeyDown(e: KeyboardEvent) {
+		const step = e.shiftKey ? 120 : 40;
+		switch (e.key) {
+			case 'ArrowLeft':
+				flow.pan(step, 0);
+				break;
+			case 'ArrowRight':
+				flow.pan(-step, 0);
+				break;
+			case 'ArrowUp':
+				flow.pan(0, step);
+				break;
+			case 'ArrowDown':
+				flow.pan(0, -step);
+				break;
+			case '+':
+			case '=':
+				flow.zoomIn();
+				break;
+			case '-':
+				flow.zoomOut();
+				break;
+			default:
+				return;
+		}
+		e.preventDefault();
+	}
+
+	onDestroy(() => {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('mousemove', handleMouseMove);
+		window.removeEventListener('mouseup', handleMouseUp);
+		cleanupTouchListeners();
+	});
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="kaykay-minimap {className}"
 	style:width="{width}px"
 	style:height="{height}px"
 	style:background-color={bgColor}
 	bind:this={minimapEl}
-	onmousedown={handleMouseDown}
-	ontouchstart={handleTouchStart}
+	onpointerdown={handlePointerDown}
+	onpointermove={handlePointerMove}
+	onpointerup={handlePointerUp}
+	onpointercancel={handlePointerUp}
+	onkeydown={handleKeyDown}
+	role="button"
+	tabindex="0"
+	aria-label="Minimap navigation"
 >
 	<svg {width} {height}>
 		<!-- Render nodes (skip nodes inside groups - they have parent_id) -->
@@ -234,7 +303,7 @@
 					y={pos.y}
 					width={nodeWidth}
 					height={nodeHeight}
-					fill={nodeFillColor}
+					fill={flow.selected_node_ids.has(node.id) ? selectedNodeFillColor : nodeFillColor}
 					rx="2"
 					ry="2"
 				/>

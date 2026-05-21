@@ -23,6 +23,7 @@ export type {
 	NodeState,
 	NodeStatus,
 	EdgeType,
+	EdgeStyle,
 	FlowEdge,
 	Flow,
 	Viewport,
@@ -31,7 +32,20 @@ export type {
 	NodeTypes,
 	FlowConfig,
 	FlowCallbacks,
+	FlowChangeReason,
+	ConnectionValidationContext,
+	ConnectionValidationResult,
+	ConnectionValidationResultObject,
 } from './types/index.js';
 
 // Utilities
-export { getBezierPath, getStraightPath, getStepPath, getEdgePath, getEdgePathWithWaypoints, getEdgeCenter } from './utils/edge-path.js';
+export {
+	getBezierPath,
+	getStraightPath,
+	getStepPath,
+	getEdgePath,
+	getEdgePathWithWaypoints,
+	getEdgeCenter,
+	getPointOnLine,
+	getClosestPointOnSegment,
+} from './utils/edge-path.js';

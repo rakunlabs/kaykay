@@ -44,7 +44,7 @@
 	// Edit mode state
 	let isEditing = $state(false);
 	let editText = $state('');
-	let textareaEl: HTMLTextAreaElement;
+	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
 	// Resize state
 	type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | null;

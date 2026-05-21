@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import type { Component } from 'svelte';
 	import type { NodeState, NodeProps, NodeStatus, Position } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
@@ -16,6 +16,7 @@
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
 
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let nodeEl: HTMLDivElement;
 	let isDragging = $state(false);
 	let hasMoved = $state(false); // Track if node actually moved during drag
@@ -25,6 +26,11 @@
 
 	// Get absolute position (accounting for parent)
 	const absolutePosition = $derived(flow.getAbsolutePosition(node.id));
+
+	function isInteractiveTarget(target: EventTarget | null): boolean {
+		if (!(target instanceof Element)) return false;
+		return !!target.closest('input, textarea, select, button, [contenteditable="true"], [data-kaykay-no-drag]');
+	}
 
 	// Update node dimensions when mounted
 	$effect(() => {
@@ -40,6 +46,7 @@
 		// Don't start dragging if clicking on a handle (let handle process it)
 		const target = e.target as HTMLElement;
 		if (target.closest('[data-handle-id]')) return;
+		if (isInteractiveTarget(target)) return;
 		
 		e.stopPropagation();
 
@@ -77,8 +84,7 @@
 			}
 		}
 
-		// Save snapshot for undo before drag starts
-		flow.pushSnapshot();
+		flow.beginTransaction();
 
 		flow.callbacks.on_node_drag_start?.(node.id);
 
@@ -197,6 +203,7 @@
 
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
+			flow.endTransaction(hasMoved, 'node:position');
 		}
 		window.removeEventListener('mousemove', handleMouseMove);
 		window.removeEventListener('mouseup', handleMouseUp);
@@ -209,6 +216,7 @@
 		// Don't start dragging if touching a handle
 		const target = e.target as HTMLElement;
 		if (target.closest('[data-handle-id]')) return;
+		if (isInteractiveTarget(target)) return;
 
 		e.stopPropagation();
 
@@ -247,8 +255,7 @@
 			}
 		}
 
-		// Save snapshot for undo before drag starts
-		flow.pushSnapshot();
+		flow.beginTransaction();
 
 		flow.callbacks.on_node_drag_start?.(node.id);
 
@@ -326,12 +333,14 @@
 
 				flow.callbacks.on_node_drag_end?.(node.id, node.position);
 			}
+			flow.endTransaction(hasMoved, 'node:position');
 		}
 		cleanupTouchListeners();
 	}
 
 	function handleTouchCancel() {
 		isDragging = false;
+		flow.endTransaction(hasMoved, 'node:position');
 		cleanupTouchListeners();
 	}
 
@@ -340,6 +349,16 @@
 		window.removeEventListener('touchend', handleTouchEnd);
 		window.removeEventListener('touchcancel', handleTouchCancel);
 	}
+
+	onDestroy(() => {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('mousemove', handleMouseMove);
+		window.removeEventListener('mouseup', handleMouseUp);
+		cleanupTouchListeners();
+		if (isDragging) {
+			flow.endTransaction(hasMoved, 'node:position');
+		}
+	});
 
 	// Compute style using absolute position for rendering
 	const nodeStyle = $derived(

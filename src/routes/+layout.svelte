@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { resolve, asset } from '$app/paths';
+	import { onMount, tick, type Snippet } from 'svelte';
+	import { resolve, asset, base } from '$app/paths';
 	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 
 	interface Props {
 		children: Snippet;
@@ -11,7 +12,14 @@
 
 	// Sidebar state
 	let sidebarOpen = $state(true);
+	let sidebarNav = $state<HTMLElement | null>(null);
 	let theme: 'light' | 'dark' = $state('light');
+
+	onMount(() => {
+		if (window.matchMedia('(max-width: 768px)').matches) {
+			sidebarOpen = false;
+		}
+	});
 
 	// Load theme from localStorage on mount
 	$effect(() => {
@@ -34,23 +42,50 @@
 		sidebarOpen = !sidebarOpen;
 	}
 
+	function closeSidebarOnMobile() {
+		if (browser && window.matchMedia('(max-width: 768px)').matches) {
+			sidebarOpen = false;
+		}
+	}
+
 	// Navigation items
 	const navItems: { href: `/${string}`, label: string, icon: string }[] = [
 		{ href: '/playground', label: 'Playground', icon: '⚡' },
 		{ href: '/examples/getting-started', label: 'Getting Started', icon: '🚀' },
 		{ href: '/examples/basic-nodes', label: 'Basic Nodes', icon: '📦' },
+		{ href: '/examples/drag-drop', label: 'Drag & Drop', icon: '↧' },
 		{ href: '/examples/connections', label: 'Connections & Edges', icon: '🔗' },
 		{ href: '/examples/groups', label: 'Groups', icon: '📁' },
 		{ href: '/examples/styling', label: 'Styling & Theming', icon: '🎨' },
+		{ href: '/examples/state-history', label: 'State & History', icon: '↺' },
+		{ href: '/examples/blender-style', label: 'Blender Style', icon: 'B' },
 		{ href: '/examples/touch', label: 'Touch Support', icon: '👆' },
 		{ href: '/examples/api', label: 'API Reference', icon: '📖' },
 	];
+
+	const currentPath = $derived.by(() => {
+		const pathname = base && page.url.pathname.startsWith(base)
+			? page.url.pathname.slice(base.length)
+			: page.url.pathname;
+
+		return pathname.replace(/\/$/, '') || '/';
+	});
+
+	$effect(() => {
+		const activePath = currentPath;
+		if (!browser || !sidebarNav) return;
+
+		tick().then(() => {
+			if (activePath !== currentPath) return;
+			sidebarNav?.querySelector('.nav-item.active')?.scrollIntoView({ block: 'nearest' });
+		});
+	});
 </script>
 
 <div class="app-container" class:kaykay-light={theme === 'light'} class:kaykay-dark={theme === 'dark'}>
 	<!-- Sidebar -->
 	<aside class="sidebar" class:collapsed={!sidebarOpen}>
-		<a href={resolve('/')} class="sidebar-header">
+		<a href={resolve('/')} class="sidebar-header" onclick={closeSidebarOnMobile}>
 			<img src={asset('/kaykay.svg')} alt="kaykay logo" class="logo" />
 			{#if sidebarOpen}
 				<div class="brand">
@@ -60,9 +95,15 @@
 			{/if}
 		</a>
 
-		<nav class="sidebar-nav">
+		<nav class="sidebar-nav" bind:this={sidebarNav}>
 			{#each navItems as item}
-				<a href={resolve(item.href as any)} class="nav-item">
+				<a
+					href={resolve(item.href as any)}
+					class="nav-item"
+					class:active={currentPath === item.href}
+					aria-current={currentPath === item.href ? 'page' : undefined}
+					onclick={closeSidebarOnMobile}
+				>
 					<span class="nav-icon">{item.icon}</span>
 					{#if sidebarOpen}
 						<span class="nav-label">{item.label}</span>
@@ -88,6 +129,10 @@
 			</a>
 		</div>
 	</aside>
+
+	{#if sidebarOpen}
+		<button class="sidebar-backdrop" type="button" onclick={toggleSidebar} aria-label="Close navigation"></button>
+	{/if}
 
 	<!-- Toggle button -->
 	<button class="sidebar-toggle" onclick={toggleSidebar} title={sidebarOpen ? 'Collapse' : 'Expand'}>
@@ -216,9 +261,21 @@
 		color: #fff;
 	}
 
+	.nav-item.active {
+		background: rgba(235, 84, 37, 0.14);
+		box-shadow: inset 3px 0 0 #eb5425;
+		color: #fff;
+	}
+
 	.app-container.kaykay-light .nav-item:hover {
 		background: #f0f0f0;
 		color: #333;
+	}
+
+	.app-container.kaykay-light .nav-item.active {
+		background: #fff0eb;
+		box-shadow: inset 3px 0 0 #eb5425;
+		color: #b43b16;
 	}
 
 	.nav-icon {
@@ -307,6 +364,10 @@
 		background: #d0d0d0;
 	}
 
+	.sidebar-backdrop {
+		display: none;
+	}
+
 	/* Sidebar Toggle */
 	.sidebar-toggle {
 		position: absolute;
@@ -353,5 +414,66 @@
 		height: 100vh;
 		overflow-y: auto;
 		position: relative;
+	}
+
+	@media (max-width: 768px) {
+		.app-container {
+			display: block;
+		}
+
+		.sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			z-index: 220;
+			width: min(82vw, 280px);
+			max-width: 100vw;
+			box-shadow: 16px 0 34px rgba(0, 0, 0, 0.32);
+			transform: translateX(0);
+			transition: transform 0.2s ease;
+		}
+
+		.sidebar.collapsed {
+			width: min(82vw, 280px);
+			transform: translateX(-100%);
+		}
+
+		.sidebar.collapsed .logo {
+			width: 64px;
+		}
+
+		.sidebar-backdrop {
+			display: block;
+			position: fixed;
+			inset: 0;
+			z-index: 210;
+			background: rgba(0, 0, 0, 0.45);
+			border: 0;
+			cursor: pointer;
+		}
+
+		.sidebar-toggle {
+			position: fixed;
+			left: 12px;
+			top: 12px;
+			z-index: 230;
+			width: 40px;
+			height: 40px;
+			transform: none;
+			border: 1px solid #252422;
+			border-radius: 8px;
+		}
+
+		.sidebar:not(.collapsed) ~ .sidebar-toggle {
+			left: min(calc(82vw + 8px), 288px);
+		}
+
+		.sidebar.collapsed ~ .sidebar-toggle {
+			left: 12px;
+		}
+
+		.main-content {
+			height: 100vh;
+		}
 	}
 </style>

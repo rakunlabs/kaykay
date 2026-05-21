@@ -1,6 +1,6 @@
 {
   "name": "kaykay",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "A Svelte 5 flow/node editor library with typed port connections",
   "type": "module",
   "svelte": "./dist/index.js",
@@ -15,6 +15,7 @@
   "files": [
     "dist",
     "README.md",
+    "USAGE.md",
     "LICENSE",
     "package.json"
   ],
@@ -23,13 +24,17 @@
     "build": "svelte-kit sync && svelte-package",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "oxlint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "package": "svelte-kit sync && svelte-package",
+    "ci": "pnpm check && pnpm lint && pnpm test && pnpm build",
     "format": "prettier --write ."
   },
   "peerDependencies": {
     "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^3.3.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.9.0",
     "@sveltejs/package": "^2.3.7",
@@ -38,7 +43,8 @@
     "svelte": "^5.14.1",
     "svelte-check": "^4.1.1",
     "typescript": "^5.7.2",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vitest": "^4.1.7"
   },
   "keywords": [
     "svelte",

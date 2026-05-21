@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
 	import SimpleNode from '../nodes/SimpleNode.svelte';
 
 	// Example nodes for the preview
@@ -21,6 +22,11 @@
 
 	// Track current section
 	let currentSection = $state(1);
+	let canvasKey = $state(0);
+
+	function resetExample(): void {
+		canvasKey += 1;
+	}
 </script>
 
 <div class="docs-page">
@@ -29,6 +35,7 @@
 			<h1>Getting Started</h1>
 			<p>Learn how to install kaykay and create your first flow diagram.</p>
 		</div>
+		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/getting-started/+page.svelte" />
 
 		<nav class="docs-nav">
 			<button class:active={currentSection === 1} onclick={() => currentSection = 1}>
@@ -62,6 +69,10 @@ npm install kaykay
 # Using yarn
 yarn add kaykay</code></pre>
 					</div>
+
+					<p>
+						Package registry: <a href="https://www.npmjs.com/package/kaykay" target="_blank" rel="noreferrer">kaykay on npm</a>.
+					</p>
 
 					<p>kaykay requires Svelte 5 as a peer dependency.</p>
 				</section>
@@ -238,7 +249,9 @@ yarn add kaykay</code></pre>
 
 	<div class="docs-preview">
 		<div class="preview-label">Live Preview</div>
-		<Canvas {nodes} {edges} {nodeTypes} />
+		{#key canvasKey}
+			<Canvas {nodes} {edges} {nodeTypes} />
+		{/key}
 	</div>
 </div>
 

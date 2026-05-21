@@ -99,11 +99,46 @@ export interface FlowEdge {
 	color?: string;
 }
 
+// Connection validation details passed to custom validators
+export interface ConnectionValidationContext {
+	source_node: NodeState;
+	target_node: NodeState;
+	source_handle: HandleState;
+	target_handle: HandleState;
+	edges: FlowEdge[];
+}
+
+export interface ConnectionValidationResultObject {
+	valid: boolean;
+	reason?: string;
+}
+
+export type ConnectionValidationResult = boolean | string | ConnectionValidationResultObject;
+
 // Complete flow definition (JSON export format)
 export interface Flow {
 	nodes: FlowNode[];
 	edges: FlowEdge[];
 }
+
+export type FlowChangeReason =
+	| 'node:add'
+	| 'node:remove'
+	| 'node:position'
+	| 'node:data'
+	| 'node:resize'
+	| 'node:parent'
+	| 'edge:add'
+	| 'edge:remove'
+	| 'edge:update'
+	| 'edge:waypoint'
+	| 'selection:update'
+	| 'viewport:update'
+	| 'clipboard:paste'
+	| 'flow:load'
+	| 'history:undo'
+	| 'history:redo'
+	| 'batch';
 
 // Viewport state for pan/zoom
 export interface Viewport {
@@ -165,6 +200,14 @@ export interface FlowConfig {
 	locked?: boolean;
 	// Maximum number of undo history steps (default: 50)
 	max_history?: number;
+	// Maximum number of edges that can target one input handle
+	max_connections_per_input?: number;
+	// Maximum number of edges that can originate from one output handle
+	max_connections_per_output?: number;
+	// Prevent connections that would create graph cycles
+	prevent_cycles?: boolean;
+	// Custom connection validation hook. Return false, a reason string, or { valid, reason } to reject.
+	is_valid_connection?: (context: ConnectionValidationContext) => ConnectionValidationResult;
 }
 
 // Event callbacks
@@ -179,4 +222,5 @@ export interface FlowCallbacks {
 	on_selection_change?: (node_ids: string[], edge_ids: string[]) => void;
 	on_undo?: () => void;
 	on_redo?: () => void;
+	on_change?: (flow: Flow, reason: FlowChangeReason) => void;
 }

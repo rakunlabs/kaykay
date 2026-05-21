@@ -2,22 +2,28 @@
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
 	import type { FlowState } from '../../../lib/stores/flow.svelte.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
+	import { cloneFlowEdges, cloneFlowNodes } from '../example-utils.js';
 	import BasicNode from '../nodes/BasicNode.svelte';
 
-	let nodes: FlowNode[] = $state([
+	const initialNodes: FlowNode[] = [
 		{ id: 'n1', type: 'basic', position: { x: 50, y: 50 }, data: { label: 'Node A' } },
 		{ id: 'n2', type: 'basic', position: { x: 50, y: 180 }, data: { label: 'Node B' } },
 		{ id: 'n3', type: 'basic', position: { x: 300, y: 50 }, data: { label: 'Node C' } },
 		{ id: 'n4', type: 'basic', position: { x: 300, y: 180 }, data: { label: 'Node D' } },
 		{ id: 'n5', type: 'basic', position: { x: 550, y: 115 }, data: { label: 'Output' } },
-	]);
+	];
 
-	let edges: FlowEdge[] = $state([
+	const initialEdges: FlowEdge[] = [
 		{ id: 'e1', source: 'n1', source_handle: 'out', target: 'n3', target_handle: 'in', type: 'bezier' },
 		{ id: 'e2', source: 'n2', source_handle: 'out', target: 'n4', target_handle: 'in', type: 'step', color: '#22c55e' },
 		{ id: 'e3', source: 'n3', source_handle: 'out', target: 'n5', target_handle: 'in', type: 'straight', style: 'dashed' },
 		{ id: 'e4', source: 'n4', source_handle: 'out', target: 'n5', target_handle: 'in', type: 'bezier', color: '#f59e0b', animated: true },
-	]);
+	];
+
+	let nodes: FlowNode[] = $state(cloneFlowNodes(initialNodes));
+	let edges: FlowEdge[] = $state(cloneFlowEdges(initialEdges));
+	let canvasKey = $state(0);
 
 	const nodeTypes: NodeTypes = {
 		'basic': BasicNode,
@@ -40,7 +46,8 @@
 	let isAnimated = $state(false);
 
 	// Reference to Canvas component to access internal flow state
-	let canvasComponent: { getFlow: () => FlowState } | undefined;
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
+	let canvasComponent = $state<{ getFlow: () => FlowState } | undefined>();
 
 	function addOrUpdateExampleEdge() {
 		const flow = canvasComponent?.getFlow();
@@ -73,12 +80,26 @@
 			flow.edges.push(newEdge);
 		}
 	}
+
+	function resetExample(): void {
+		nodes = cloneFlowNodes(initialNodes);
+		edges = cloneFlowEdges(initialEdges);
+		selectedEdgeType = 'bezier';
+		selectedEdgeStyle = 'solid';
+		selectedEdgeColor = '#888888';
+		isAnimated = false;
+		canvasKey += 1;
+	}
 </script>
 
 <div class="example-page">
 	<div class="example-sidebar">
 		<h1>Connections & Edges</h1>
 		<p>Learn about different edge types, styles, colors, and interactive features.</p>
+		<ExampleToolbar
+			onReset={resetExample}
+			sourcePath="src/routes/examples/connections/+page.svelte"
+		/>
 
 		<div class="section">
 			<h3>Edge Types</h3>
@@ -144,7 +165,7 @@
 		<div class="section">
 			<h3>Interactions</h3>
 			<ul class="feature-list">
-				<li><strong>Right-click edge</strong> - Context menu</li>
+				<li><strong>Right-click edge</strong> - Context menu for type, style, color, animation, and labels</li>
 				<li><strong>Ctrl+click edge</strong> - Add waypoint</li>
 				<li><strong>Drag waypoint</strong> - Reposition</li>
 				<li><strong>Ctrl+click waypoint</strong> - Remove it</li>
@@ -170,7 +191,9 @@
 	</div>
 
 	<div class="example-canvas">
-		<Canvas bind:this={canvasComponent} {nodes} {edges} {nodeTypes} {callbacks} />
+		{#key canvasKey}
+			<Canvas bind:this={canvasComponent} {nodes} {edges} {nodeTypes} {callbacks} />
+		{/key}
 	</div>
 </div>
 

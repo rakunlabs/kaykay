@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
 	import InputNode from '../nodes/InputNode.svelte';
 	import OutputNode from '../nodes/OutputNode.svelte';
 	import MultiHandleNode from '../nodes/MultiHandleNode.svelte';
@@ -21,6 +22,7 @@
 
 	// Track current section and update preview accordingly
 	let currentSection = $state<'input' | 'output' | 'multi' | 'labeled' | 'styled'>('input');
+	let canvasKey = $state(0);
 
 	// Different node/edge configs for each section
 	const previewConfigs = {
@@ -87,6 +89,10 @@
 
 	let currentNodes = $derived(previewConfigs[currentSection].nodes as FlowNode[]);
 	let currentEdges = $derived(previewConfigs[currentSection].edges as FlowEdge[]);
+
+	function resetExample(): void {
+		canvasKey += 1;
+	}
 </script>
 
 <div class="docs-page">
@@ -95,6 +101,7 @@
 			<h1>Basic Nodes</h1>
 			<p>Learn how to create different types of nodes with various handle configurations.</p>
 		</div>
+		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/basic-nodes/+page.svelte" />
 
 		<nav class="docs-nav">
 			<button class:active={currentSection === 'input'} onclick={() => currentSection = 'input'}>
@@ -356,7 +363,7 @@
 
 	<div class="docs-preview">
 		<div class="preview-label">Live Preview</div>
-		{#key currentSection}
+		{#key `${currentSection}-${canvasKey}`}
 			<Canvas nodes={currentNodes} edges={currentEdges} {nodeTypes} />
 		{/key}
 	</div>

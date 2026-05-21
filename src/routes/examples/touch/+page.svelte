@@ -1,18 +1,24 @@
 <script lang="ts">
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
+	import ExampleToolbar from '../ExampleToolbar.svelte';
+	import { cloneFlowEdges, cloneFlowNodes } from '../example-utils.js';
 	import SimpleNode from '../nodes/SimpleNode.svelte';
 
-	let nodes: FlowNode[] = $state([
+	const initialNodes: FlowNode[] = [
 		{ id: 'n1', type: 'simple', position: { x: 100, y: 100 }, data: { label: 'Drag Me' } },
 		{ id: 'n2', type: 'simple', position: { x: 350, y: 100 }, data: { label: 'Connect Me' } },
 		{ id: 'n3', type: 'simple', position: { x: 100, y: 250 }, data: { label: 'Node A' } },
 		{ id: 'n4', type: 'simple', position: { x: 350, y: 250 }, data: { label: 'Node B' } },
-	]);
+	];
 
-	let edges: FlowEdge[] = $state([
+	const initialEdges: FlowEdge[] = [
 		{ id: 'e1', source: 'n3', source_handle: 'out', target: 'n4', target_handle: 'in' },
-	]);
+	];
+
+	let nodes: FlowNode[] = $state(cloneFlowNodes(initialNodes));
+	let edges: FlowEdge[] = $state(cloneFlowEdges(initialEdges));
+	let canvasKey = $state(0);
 
 	const nodeTypes: NodeTypes = {
 		'simple': SimpleNode,
@@ -27,12 +33,19 @@
 			edges = edges.filter(e => !edgeIds.includes(e.id));
 		}
 	};
+
+	function resetExample(): void {
+		nodes = cloneFlowNodes(initialNodes);
+		edges = cloneFlowEdges(initialEdges);
+		canvasKey += 1;
+	}
 </script>
 
 <div class="example-page">
 	<div class="example-sidebar">
 		<h1>Touch Support</h1>
 		<p>kaykay fully supports touch devices including tablets and phones.</p>
+		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/touch/+page.svelte" />
 
 		<div class="section">
 			<h3>Touch Gestures</h3>
@@ -98,7 +111,9 @@
 	</div>
 
 	<div class="example-canvas">
-		<Canvas {nodes} {edges} {nodeTypes} {callbacks} />
+		{#key canvasKey}
+			<Canvas {nodes} {edges} {nodeTypes} {callbacks} />
+		{/key}
 	</div>
 </div>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { getContext, onDestroy } from 'svelte';
 	import type { FlowEdge, Position, EdgeStyle, EdgeType } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 	import { getEdgePathWithWaypoints, getEdgeCenter } from '../utils/edge-path.js';
@@ -86,6 +86,7 @@
 	});
 	const strokeDashArray = $derived(getStrokeDashArray(edge.style));
 	const isAnimated = $derived(edge.animated ?? false);
+	const isHighlighted = $derived(Boolean((edge as FlowEdge & { highlighted?: boolean }).highlighted));
 
 	// Get reactive handle positions - these update when nodes move
 	const source_position = $derived(flow.getHandlePosition(edge.source, edge.source_handle));
@@ -228,6 +229,7 @@
 		}
 
 		draggingWaypointIndex = index;
+		flow.beginTransaction();
 
 		window.addEventListener('mousemove', handleWaypointDrag);
 		window.addEventListener('mouseup', handleWaypointMouseUp);
@@ -250,6 +252,7 @@
 
 	function handleWaypointMouseUp() {
 		draggingWaypointIndex = null;
+		flow.endTransaction(true, 'edge:waypoint');
 		window.removeEventListener('mousemove', handleWaypointDrag);
 		window.removeEventListener('mouseup', handleWaypointMouseUp);
 	}
@@ -280,6 +283,17 @@
 		window.removeEventListener('contextmenu', closeContextMenu);
 	}
 
+	onDestroy(() => {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('mousemove', handleWaypointDrag);
+		window.removeEventListener('mouseup', handleWaypointMouseUp);
+		window.removeEventListener('click', closeContextMenu);
+		window.removeEventListener('contextmenu', closeContextMenu);
+		if (draggingWaypointIndex !== null) {
+			flow.endTransaction(true, 'edge:waypoint');
+		}
+	});
+
 	function setEdgeStyle(style: EdgeStyle) {
 		flow.updateEdge(edge.id, { style });
 		closeContextMenu();
@@ -292,6 +306,11 @@
 
 	function setEdgeType(type: EdgeType) {
 		flow.updateEdge(edge.id, { type });
+		closeContextMenu();
+	}
+
+	function setEdgeLabel(label: string) {
+		flow.updateEdge(edge.id, { label: label.trim() || undefined });
 		closeContextMenu();
 	}
 
@@ -458,6 +477,65 @@
 			colorSection.appendChild(colorOptionsDiv);
 			menuContainer.appendChild(colorSection);
 
+			// Label section
+			const labelSection = document.createElement('div');
+			labelSection.style.marginTop = '8px';
+			labelSection.style.paddingTop = '8px';
+			labelSection.style.borderTop = '1px solid #333';
+
+			const labelTitle = document.createElement('div');
+			labelTitle.textContent = 'Label';
+			labelTitle.style.cssText = 'color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; padding: 0 4px;';
+			labelSection.appendChild(labelTitle);
+
+			const labelRow = document.createElement('div');
+			labelRow.style.cssText = 'display: flex; gap: 4px;';
+
+			const labelInput = document.createElement('input');
+			labelInput.value = edge.label ?? '';
+			labelInput.placeholder = 'Edge label';
+			labelInput.style.cssText = `
+				min-width: 0;
+				flex: 1;
+				padding: 6px 8px;
+				background: #141414;
+				border: 1px solid #333;
+				border-radius: 4px;
+				color: #ddd;
+				font-size: 12px;
+			`;
+			labelInput.onclick = (e) => e.stopPropagation();
+			labelInput.onkeydown = (e) => {
+				e.stopPropagation();
+				if (e.key === 'Enter') {
+					setEdgeLabel(labelInput.value);
+				}
+				if (e.key === 'Escape') {
+					closeContextMenu();
+				}
+			};
+
+			const labelButton = document.createElement('button');
+			labelButton.textContent = 'Apply';
+			labelButton.style.cssText = `
+				padding: 6px 8px;
+				background: #3b82f6;
+				border: 1px solid #3b82f6;
+				border-radius: 4px;
+				color: #fff;
+				cursor: pointer;
+				font-size: 12px;
+			`;
+			labelButton.onclick = (e) => {
+				e.stopPropagation();
+				setEdgeLabel(labelInput.value);
+			};
+
+			labelRow.appendChild(labelInput);
+			labelRow.appendChild(labelButton);
+			labelSection.appendChild(labelRow);
+			menuContainer.appendChild(labelSection);
+
 			// Delete section
 			const deleteSection = document.createElement('div');
 			deleteSection.style.marginTop = '8px';
@@ -535,7 +613,13 @@
 </script>
 
 {#if combinedPath}
-	<g class="kaykay-edge" class:selected class:animated={isAnimated}>
+	<g
+		class="kaykay-edge"
+		class:selected
+		class:animated={isAnimated}
+		class:highlighted={isHighlighted}
+		style:color={strokeColor}
+	>
 		<!-- Arrow marker definition -->
 		<defs>
 			<marker
@@ -627,7 +711,7 @@
 		stroke: var(--kaykay-edge-stroke, #888);
 		stroke-width: 2px;
 		pointer-events: none;
-		transition: stroke 0.15s ease;
+		transition: stroke 0.15s ease, stroke-width 0.15s ease, filter 0.15s ease;
 	}
 
 	.kaykay-edge:hover .kaykay-edge-path {
@@ -637,6 +721,11 @@
 	.kaykay-edge.selected .kaykay-edge-path {
 		stroke-width: 3px;
 		filter: brightness(1.3);
+	}
+
+	.kaykay-edge.highlighted .kaykay-edge-path {
+		stroke-width: 3px;
+		filter: brightness(1.45) drop-shadow(0 0 5px currentColor);
 	}
 
 	/* Animation for dashed/dotted edges */

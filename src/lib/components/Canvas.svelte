@@ -90,15 +90,18 @@
 		return containerEl ?? null;
 	}
 
+	// oxlint-disable-next-line no-unassigned-vars -- assigned by Svelte bind:this
 	let containerEl: HTMLDivElement;
 	let isPanning = $state(false);
 	let isSelecting = $state(false);
+	let selectionMode = $state<'replace' | 'add' | 'subtract' | 'toggle'>('toggle');
 	let lastMousePos = $state<Position | null>(null);
 	let mouseCanvasPos = $state<Position>({ x: 0, y: 0 });
 	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
 	// Touch state for panning
 	let lastTouchCenter = $state<Position | null>(null);
+	let lastTouchDistance = $state<number | null>(null);
 	let isTouchPanning = $state(false);
 
 	// Track canvas dimensions for fitView
@@ -151,10 +154,11 @@
 			return;
 		}
 
-		// Ctrl + left click on background → start selection rectangle
-		if (e.button === 0 && (e.ctrlKey || e.metaKey) && !isOnNode && !isOnHandle && !isOnEdge) {
+		// Modifier + left click on background starts selection rectangle.
+		if (e.button === 0 && (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) && !isOnNode && !isOnHandle && !isOnEdge) {
 			e.preventDefault();
 			isSelecting = true;
+			selectionMode = e.altKey ? 'subtract' : e.shiftKey ? 'add' : e.ctrlKey || e.metaKey ? 'toggle' : 'replace';
 			const rect = containerEl.getBoundingClientRect();
 			const canvas_pos = flow.screenToCanvas({
 				x: e.clientX - rect.left,
@@ -222,7 +226,7 @@
 		// Finish selection rectangle
 		if (isSelecting) {
 			isSelecting = false;
-			flow.finishSelectionRect();
+			flow.finishSelectionRect(selectionMode);
 			return;
 		}
 
@@ -321,6 +325,13 @@
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			flow.deleteSelected();
 		}
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+			const step = e.shiftKey ? 50 : 10;
+			const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+			const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+			e.preventDefault();
+			nudgeSelectedNodes(dx, dy);
+		}
 		if (e.key === 'Escape') {
 			flow.clearSelection();
 			flow.cancelConnection();
@@ -350,6 +361,21 @@
 		flow.paste(mouseCanvasPos);
 	}
 
+	function nudgeSelectedNodes(dx: number, dy: number): void {
+		if (flow.locked || flow.selected_node_ids.size === 0) return;
+
+		flow.beginTransaction();
+		for (const node_id of flow.selected_node_ids) {
+			const node = flow.getNode(node_id);
+			if (!node) continue;
+			flow.updateNodePosition(node_id, {
+				x: node.position.x + dx,
+				y: node.position.y + dy,
+			});
+		}
+		flow.endTransaction(true, 'node:position');
+	}
+
 	// Helper to calculate distance between two touch points
 	function getTouchCenter(touches: TouchList): Position {
 		if (touches.length < 2) {
@@ -359,6 +385,13 @@
 			x: (touches[0].clientX + touches[1].clientX) / 2,
 			y: (touches[0].clientY + touches[1].clientY) / 2,
 		};
+	}
+
+	function getTouchDistance(touches: TouchList): number {
+		if (touches.length < 2) return 0;
+		const dx = touches[0].clientX - touches[1].clientX;
+		const dy = touches[0].clientY - touches[1].clientY;
+		return Math.sqrt(dx * dx + dy * dy);
 	}
 
 	// Handle touch start for panning and pinch-to-zoom
@@ -376,9 +409,10 @@
 		}
 
 		if (e.touches.length === 2) {
-			// Two-finger panning: track initial center
+			// Two-finger pan and pinch zoom: track initial center and distance
 			e.preventDefault();
 			lastTouchCenter = getTouchCenter(e.touches);
+			lastTouchDistance = getTouchDistance(e.touches);
 		} else if (e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge) {
 			// Single touch panning on canvas background
 			isTouchPanning = true;
@@ -392,15 +426,25 @@
 	// Handle touch move for panning
 	function handleTouchMove(e: TouchEvent) {
 		if (e.touches.length === 2 && lastTouchCenter !== null) {
-			// Two-finger panning
+			// Two-finger panning + pinch zoom
 			e.preventDefault();
 			const newCenter = getTouchCenter(e.touches);
+			const newDistance = getTouchDistance(e.touches);
 
 			const dx = newCenter.x - lastTouchCenter.x;
 			const dy = newCenter.y - lastTouchCenter.y;
 			flow.pan(dx, dy);
 
+			if (lastTouchDistance && newDistance > 0) {
+				const rect = containerEl.getBoundingClientRect();
+				flow.zoom(newDistance / lastTouchDistance - 1, {
+					x: newCenter.x - rect.left,
+					y: newCenter.y - rect.top,
+				});
+			}
+
 			lastTouchCenter = newCenter;
+			lastTouchDistance = newDistance;
 		} else if (isTouchPanning && lastTouchCenter !== null && e.touches.length === 1) {
 			// Single touch panning
 			const dx = e.touches[0].clientX - lastTouchCenter.x;
@@ -462,6 +506,10 @@
 
 			isTouchPanning = false;
 			lastTouchCenter = null;
+			lastTouchDistance = null;
+		} else if (e.touches.length === 1) {
+			lastTouchCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+			lastTouchDistance = null;
 		}
 	}
 
@@ -469,6 +517,7 @@
 	function handleTouchCancel() {
 		isTouchPanning = false;
 		lastTouchCenter = null;
+		lastTouchDistance = null;
 		if (flow.draft_connection) {
 			flow.cancelConnection();
 		}
@@ -602,10 +651,8 @@
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 100vw;
-		height: 100vh;
-		min-width: 5000px;
-		min-height: 5000px;
+		width: 100%;
+		height: 100%;
 		overflow: visible;
 		pointer-events: none;
 		transform-origin: 0 0;

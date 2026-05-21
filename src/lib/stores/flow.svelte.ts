@@ -10,9 +10,29 @@ import type {
 	Position,
 	FlowConfig,
 	FlowCallbacks,
+	FlowChangeReason,
+	ConnectionValidationResult,
 } from '../types/index.js';
 
 const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
+
+function cloneSerializable<T>(value: T): T {
+	if (value === undefined) return value;
+
+	if (typeof structuredClone === 'function') {
+		try {
+			return structuredClone(value);
+		} catch {
+			// Fall through to JSON for plain serializable flow payloads.
+		}
+	}
+
+	return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null;
+}
 
 // Flow state class using Svelte 5 runes
 export class FlowState {
@@ -49,6 +69,9 @@ export class FlowState {
 	private history_stack = $state<Flow[]>([]);
 	private redo_stack = $state<Flow[]>([]);
 	private is_restoring = false; // Prevent recursive history saving during undo/redo
+	private transaction_depth = 0;
+	private transaction_snapshot: Flow | null = null;
+	private transaction_changed = false;
 
 	// Canvas dimensions (set by Canvas component)
 	canvas_width = $state<number>(800);
@@ -76,39 +99,126 @@ export class FlowState {
 		};
 		this.callbacks = callbacks;
 
-		// Initialize nodes with runtime state
-		this.nodes = initial_nodes.map((node) => ({
-			...node,
-			handles: new Map(),
-			computed_width: node.width ?? 0,
-			computed_height: node.height ?? 0,
-		}));
+		const initial_flow = this.normalizeFlow({ nodes: initial_nodes, edges: initial_edges });
 
-		this.edges = [...initial_edges];
+		// Initialize nodes with runtime state
+		this.nodes = initial_flow.nodes.map((node) => this.createNodeState(node));
+		this.edges = initial_flow.edges;
 
 		// Initialize next_node_id based on existing nodes
 		this.initializeNextNodeId();
 	}
 
-	// ============ Node Operations ============
-
-	addNode(node: FlowNode): string {
-		this.pushSnapshot();
-		const node_id = node.id || this.generateNodeId();
-		const node_state: NodeState = {
+	private createNodeState(node: FlowNode): NodeState {
+		return {
 			...node,
-			id: node_id,
+			position: { ...node.position },
+			data: cloneSerializable(node.data),
 			handles: new Map(),
 			computed_width: node.width ?? 0,
 			computed_height: node.height ?? 0,
 		};
+	}
+
+	private cloneEdge(edge: FlowEdge): FlowEdge {
+		return {
+			...edge,
+			waypoints: edge.waypoints?.map((waypoint) => ({ ...waypoint })),
+		};
+	}
+
+	private normalizeFlow(flow: Flow): Flow {
+		const seen_node_ids = new Set<string>();
+		const valid_nodes = flow.nodes
+			.filter((node) => {
+				if (!node?.id || seen_node_ids.has(node.id)) return false;
+				if (!isRecord(node.position)) return false;
+				if (typeof node.position.x !== 'number' || typeof node.position.y !== 'number') return false;
+				seen_node_ids.add(node.id);
+				return true;
+			});
+		const valid_node_ids = new Set(valid_nodes.map((node) => node.id));
+		const nodes = valid_nodes.map((node) => ({
+				...node,
+				position: { ...node.position },
+				data: cloneSerializable(node.data),
+				parent_id: node.parent_id && valid_node_ids.has(node.parent_id) ? node.parent_id : undefined,
+			}));
+		const nodes_by_id = new Map(nodes.map((node) => [node.id, node]));
+		for (const node of nodes) {
+			const seen_parent_ids = new Set<string>([node.id]);
+			let parent_id = node.parent_id;
+			while (parent_id) {
+				if (seen_parent_ids.has(parent_id)) {
+					node.parent_id = undefined;
+					break;
+				}
+				seen_parent_ids.add(parent_id);
+				parent_id = nodes_by_id.get(parent_id)?.parent_id;
+			}
+		}
+
+		const node_ids = new Set(nodes.map((node) => node.id));
+		const seen_edge_ids = new Set<string>();
+		const edges = flow.edges
+			.filter((edge) => {
+				if (!edge?.id || seen_edge_ids.has(edge.id)) return false;
+				if (!node_ids.has(edge.source) || !node_ids.has(edge.target)) return false;
+				seen_edge_ids.add(edge.id);
+				return true;
+			})
+			.map((edge) => this.cloneEdge(edge));
+
+		return { nodes, edges };
+	}
+
+	private clearHandleState(): void {
+		this.handle_registry = {};
+		this.handle_positions = {};
+	}
+
+	private clearNodeHandles(node_id: string): void {
+		const prefix = `${node_id}:`;
+		for (const key of Object.keys(this.handle_registry)) {
+			if (key.startsWith(prefix)) delete this.handle_registry[key];
+		}
+		for (const key of Object.keys(this.handle_positions)) {
+			if (key.startsWith(prefix)) delete this.handle_positions[key];
+		}
+	}
+
+	private notifyChange(reason: FlowChangeReason): void {
+		this.callbacks.on_change?.(this.toJSON(), reason);
+	}
+
+	private markTransactionChanged(): void {
+		if (this.transaction_depth > 0) {
+			this.transaction_changed = true;
+		}
+	}
+
+	// ============ Node Operations ============
+
+	addNode(node: FlowNode): string {
+		if (this.locked) return '';
+
+		this.pushSnapshot();
+		const node_id = node.id || this.generateNodeId();
+		const node_state = this.createNodeState({
+			...node,
+			id: node_id,
+		});
 		this.nodes.push(node_state);
+		this.notifyChange('node:add');
 		return node_id;
 	}
 
 	removeNode(node_id: string): void {
+		if (this.locked || !this.config.allow_delete) return;
+
 		this.pushSnapshot();
 		this.removeNodeInternal(node_id);
+		this.notifyChange('batch');
 	}
 
 	// Internal remove without snapshot (for recursive calls and batch operations)
@@ -119,6 +229,7 @@ export class FlowState {
 
 		// Remove connected edges
 		this.edges = this.edges.filter((e) => e.source !== node_id && e.target !== node_id);
+		this.clearNodeHandles(node_id);
 		// Remove node
 		this.nodes = this.nodes.filter((n) => n.id !== node_id);
 		const new_selected = new Set(this.selected_node_ids);
@@ -127,6 +238,8 @@ export class FlowState {
 	}
 
 	updateNodePosition(node_id: string, position: Position): void {
+		if (this.locked) return;
+
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
 			// Apply grid snapping if enabled
@@ -137,26 +250,36 @@ export class FlowState {
 				};
 			}
 			node.position = position;
+			this.markTransactionChanged();
+			if (this.transaction_depth === 0) {
+				this.notifyChange('node:position');
+			}
 		}
 	}
 
 	updateNodeData<T>(node_id: string, data: Partial<T>): void {
+		if (this.locked) return;
+
 		this.pushSnapshot();
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
 			node.data = { ...node.data, ...data };
+			this.notifyChange('node:data');
 		}
 	}
 
 	updateNodeDimensions(node_id: string, width: number, height: number): void {
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
+			if (Math.abs(node.computed_width - width) < 0.1 && Math.abs(node.computed_height - height) < 0.1) return;
 			node.computed_width = width;
 			node.computed_height = height;
 		}
 	}
 
 	resizeNode(node_id: string, width: number, height: number): void {
+		if (this.locked) return;
+
 		this.pushSnapshot();
 		const node = this.nodes.find((n) => n.id === node_id);
 		if (node) {
@@ -164,6 +287,7 @@ export class FlowState {
 			node.height = height;
 			node.computed_width = width;
 			node.computed_height = height;
+			this.notifyChange('node:resize');
 		}
 	}
 
@@ -248,14 +372,18 @@ export class FlowState {
 
 	// Set parent of a node (for grouping/ungrouping)
 	setNodeParent(node_id: string, parent_id: string | undefined): void {
+		if (this.locked) return;
+
 		this.pushSnapshot();
 		this.setNodeParentInternal(node_id, parent_id);
+		this.notifyChange('node:parent');
 	}
 
 	// Internal setNodeParent without snapshot (for batch operations like after drag)
 	setNodeParentInternal(node_id: string, parent_id: string | undefined): void {
 		const node = this.getNode(node_id);
 		if (!node) return;
+		if (node.parent_id === parent_id) return;
 
 		// Prevent circular references
 		if (parent_id && this.isDescendantOf(parent_id, node_id)) {
@@ -277,6 +405,7 @@ export class FlowState {
 		}
 
 		node.parent_id = parent_id;
+		this.markTransactionChanged();
 	}
 
 	// Check if a node is a descendant of another node
@@ -370,6 +499,8 @@ export class FlowState {
 	// ============ Edge Operations ============
 
 	addEdge(edge: FlowEdge): boolean {
+		if (this.locked) return false;
+
 		// Validate connection
 		if (!this.canConnect(edge.source, edge.source_handle, edge.target, edge.target_handle)) {
 			return false;
@@ -393,12 +524,16 @@ export class FlowState {
 		});
 
 		this.callbacks.on_connect?.(edge);
+		this.notifyChange('edge:add');
 		return true;
 	}
 
 	removeEdge(edge_id: string): void {
+		if (this.locked || !this.config.allow_delete) return;
+
 		this.pushSnapshot();
 		this.removeEdgeInternal(edge_id);
+		this.notifyChange('edge:remove');
 	}
 
 	// Internal remove without snapshot (for batch operations)
@@ -414,16 +549,21 @@ export class FlowState {
 	}
 
 	updateEdge(edge_id: string, updates: Partial<FlowEdge>): void {
+		if (this.locked) return;
+
 		this.pushSnapshot();
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (edge) {
 			Object.assign(edge, updates);
+			this.notifyChange('edge:update');
 		}
 	}
 
 	// ============ Edge Waypoints ============
 
 	addEdgeWaypoint(edge_id: string, position: Position, index?: number): void {
+		if (this.locked) return;
+
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (!edge) return;
 
@@ -438,19 +578,25 @@ export class FlowState {
 		} else {
 			edge.waypoints.push(position);
 		}
+		this.notifyChange('edge:waypoint');
 	}
 
 	updateEdgeWaypoint(edge_id: string, waypoint_index: number, position: Position): void {
+		if (this.locked) return;
+
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (!edge || !edge.waypoints) return;
 
 		if (waypoint_index >= 0 && waypoint_index < edge.waypoints.length) {
 			this.pushSnapshot();
 			edge.waypoints[waypoint_index] = position;
+			this.notifyChange('edge:waypoint');
 		}
 	}
 
 	removeEdgeWaypoint(edge_id: string, waypoint_index: number): void {
+		if (this.locked) return;
+
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (!edge || !edge.waypoints) return;
 
@@ -461,14 +607,18 @@ export class FlowState {
 			if (edge.waypoints.length === 0) {
 				edge.waypoints = undefined;
 			}
+			this.notifyChange('edge:waypoint');
 		}
 	}
 
 	clearEdgeWaypoints(edge_id: string): void {
+		if (this.locked) return;
+
 		const edge = this.edges.find((e) => e.id === edge_id);
 		if (edge && edge.waypoints) {
 			this.pushSnapshot();
 			edge.waypoints = undefined;
+			this.notifyChange('edge:waypoint');
 		}
 	}
 
@@ -480,19 +630,111 @@ export class FlowState {
 		target_node_id: string,
 		target_handle_id: string
 	): boolean {
+		return this.getConnectionValidation(source_node_id, source_handle_id, target_node_id, target_handle_id).valid;
+	}
+
+	getConnectionValidation(
+		source_node_id: string,
+		source_handle_id: string,
+		target_node_id: string,
+		target_handle_id: string
+	): { valid: boolean; reason?: string } {
 		// Cannot connect to self
-		if (source_node_id === target_node_id) return false;
+		if (source_node_id === target_node_id) {
+			return { valid: false, reason: 'Cannot connect a node to itself' };
+		}
+
+		const source_node = this.getNode(source_node_id);
+		const target_node = this.getNode(target_node_id);
+
+		if (!source_node || !target_node) {
+			return { valid: false, reason: 'Source or target node does not exist' };
+		}
 
 		const source_handle = this.getHandle(source_node_id, source_handle_id);
 		const target_handle = this.getHandle(target_node_id, target_handle_id);
 
-		if (!source_handle || !target_handle) return false;
+		if (!source_handle || !target_handle) {
+			return { valid: false, reason: 'Source or target handle does not exist' };
+		}
 
 		// Must be output -> input
-		if (source_handle.type !== 'output' || target_handle.type !== 'input') return false;
+		if (source_handle.type !== 'output' || target_handle.type !== 'input') {
+			return { valid: false, reason: 'Connections must go from an output handle to an input handle' };
+		}
 
 		// Port type validation
-		return this.canConnectPorts(source_handle.port, target_handle.port, target_handle.accept);
+		if (!this.canConnectPorts(source_handle.port, target_handle.port, target_handle.accept)) {
+			return { valid: false, reason: `Port ${source_handle.port} is not accepted by ${target_handle.port}` };
+		}
+
+		const duplicate = this.edges.some(
+			(edge) =>
+				edge.source === source_node_id &&
+				edge.source_handle === source_handle_id &&
+				edge.target === target_node_id &&
+				edge.target_handle === target_handle_id
+		);
+		if (duplicate) {
+			return { valid: false, reason: 'Connection already exists' };
+		}
+
+		if (this.config.max_connections_per_input !== undefined) {
+			const input_count = this.edges.filter(
+				(edge) => edge.target === target_node_id && edge.target_handle === target_handle_id
+			).length;
+			if (input_count >= this.config.max_connections_per_input) {
+				return { valid: false, reason: 'Input connection limit reached' };
+			}
+		}
+
+		if (this.config.max_connections_per_output !== undefined) {
+			const output_count = this.edges.filter(
+				(edge) => edge.source === source_node_id && edge.source_handle === source_handle_id
+			).length;
+			if (output_count >= this.config.max_connections_per_output) {
+				return { valid: false, reason: 'Output connection limit reached' };
+			}
+		}
+
+		if (this.config.prevent_cycles && this.wouldCreateCycle(source_node_id, target_node_id)) {
+			return { valid: false, reason: 'Connection would create a cycle' };
+		}
+
+		const custom_result = this.config.is_valid_connection?.({
+			source_node,
+			target_node,
+			source_handle,
+			target_handle,
+			edges: this.edges,
+		});
+
+		return this.normalizeConnectionValidationResult(custom_result);
+	}
+
+	private normalizeConnectionValidationResult(result: ConnectionValidationResult | undefined): { valid: boolean; reason?: string } {
+		if (result === undefined || result === true) return { valid: true };
+		if (result === false) return { valid: false, reason: 'Connection rejected by custom validator' };
+		if (typeof result === 'string') return { valid: false, reason: result };
+		return result;
+	}
+
+	private wouldCreateCycle(source_node_id: string, target_node_id: string): boolean {
+		const visited = new Set<string>();
+		const stack = [target_node_id];
+
+		while (stack.length > 0) {
+			const node_id = stack.pop();
+			if (!node_id || visited.has(node_id)) continue;
+			if (node_id === source_node_id) return true;
+			visited.add(node_id);
+
+			for (const edge of this.edges) {
+				if (edge.source === node_id) stack.push(edge.target);
+			}
+		}
+
+		return false;
 	}
 
 	canConnectPorts(source_port: string, target_port: string, target_accept?: string[]): boolean {
@@ -562,6 +804,7 @@ export class FlowState {
 
 		this.callbacks.on_delete?.(node_ids, edge_ids);
 		this.notifySelectionChange();
+		this.notifyChange('node:remove');
 	}
 
 	// Log selected nodes and edges as JSON to console
@@ -646,6 +889,7 @@ export class FlowState {
 			zoom: Math.max(this.config.min_zoom!, Math.min(this.config.max_zoom!, viewport.zoom)),
 		};
 		this.callbacks.on_viewport_change?.(this.viewport);
+		this.notifyChange('viewport:update');
 	}
 
 	pan(dx: number, dy: number): void {
@@ -816,7 +1060,7 @@ export class FlowState {
 				id: node.id,
 				type: node.type,
 				position: { ...node.position },
-				data: { ...node.data },
+				data: cloneSerializable(node.data),
 				width: node.width,
 				height: node.height,
 				parent_id: node.parent_id,
@@ -839,13 +1083,10 @@ export class FlowState {
 	}
 
 	fromJSON(flow: Flow): void {
-		this.nodes = flow.nodes.map((node) => ({
-			...node,
-			handles: new Map(),
-			computed_width: node.width ?? 0,
-			computed_height: node.height ?? 0,
-		}));
-		this.edges = [...flow.edges];
+		const normalized_flow = this.normalizeFlow(flow);
+		this.nodes = normalized_flow.nodes.map((node) => this.createNodeState(node));
+		this.edges = normalized_flow.edges;
+		this.clearHandleState();
 		this.clearSelection();
 		// Re-initialize next_node_id based on loaded nodes
 		this.initializeNextNodeId();
@@ -854,17 +1095,59 @@ export class FlowState {
 			this.history_stack = [];
 			this.redo_stack = [];
 		}
+		this.notifyChange('flow:load');
 	}
 
 	// ============ Undo/Redo ============
 
+	beginTransaction(): void {
+		if (this.is_restoring) return;
+		if (this.transaction_depth === 0) {
+			this.transaction_snapshot = this.toJSON();
+			this.transaction_changed = false;
+		}
+		this.transaction_depth += 1;
+	}
+
+	endTransaction(commit = true, reason: FlowChangeReason = 'batch'): void {
+		if (this.transaction_depth === 0) return;
+
+		this.transaction_depth -= 1;
+		if (this.transaction_depth > 0) return;
+
+		if (commit && this.transaction_snapshot && this.transaction_changed) {
+			this.addHistorySnapshot(this.transaction_snapshot);
+			this.redo_stack = [];
+			this.notifyChange(reason);
+		}
+
+		this.transaction_snapshot = null;
+		this.transaction_changed = false;
+	}
+
+	cancelTransaction(): void {
+		this.transaction_depth = 0;
+		this.transaction_snapshot = null;
+		this.transaction_changed = false;
+	}
+
 	// Save current state before an undoable operation
 	pushSnapshot(): void {
 		if (this.is_restoring) return;
-		const snapshot = this.toJSON();
-		const max_history = this.config.max_history ?? 50;
-		this.history_stack = [...this.history_stack.slice(-(max_history - 1)), snapshot];
+		if (this.transaction_depth > 0) {
+			this.transaction_changed = true;
+			return;
+		}
+
+		this.addHistorySnapshot(this.toJSON());
 		this.redo_stack = []; // Clear redo stack on new action
+	}
+
+	private addHistorySnapshot(snapshot: Flow): void {
+		const max_history = this.config.max_history ?? 50;
+		const previous = this.history_stack[this.history_stack.length - 1];
+		if (previous && JSON.stringify(previous) === JSON.stringify(snapshot)) return;
+		this.history_stack = [...this.history_stack.slice(-(max_history - 1)), snapshot];
 	}
 
 	// Undo the last operation
@@ -878,6 +1161,7 @@ export class FlowState {
 			this.history_stack = this.history_stack.slice(0, -1);
 			this.restoreFromSnapshot(previous);
 			this.callbacks.on_undo?.();
+			this.notifyChange('history:undo');
 			return true;
 		} finally {
 			this.is_restoring = false;
@@ -895,6 +1179,7 @@ export class FlowState {
 			this.redo_stack = this.redo_stack.slice(0, -1);
 			this.restoreFromSnapshot(next);
 			this.callbacks.on_redo?.();
+			this.notifyChange('history:redo');
 			return true;
 		} finally {
 			this.is_restoring = false;
@@ -903,13 +1188,10 @@ export class FlowState {
 
 	// Restore state from a snapshot (without clearing history)
 	private restoreFromSnapshot(flow: Flow): void {
-		this.nodes = flow.nodes.map((node) => ({
-			...node,
-			handles: new Map(),
-			computed_width: node.width ?? 0,
-			computed_height: node.height ?? 0,
-		}));
-		this.edges = [...flow.edges];
+		const normalized_flow = this.normalizeFlow(flow);
+		this.nodes = normalized_flow.nodes.map((node) => this.createNodeState(node));
+		this.edges = normalized_flow.edges;
+		this.clearHandleState();
 		this.clearSelection();
 		this.initializeNextNodeId();
 	}
@@ -963,19 +1245,26 @@ export class FlowState {
 		}
 	}
 
-	finishSelectionRect(): void {
+	finishSelectionRect(mode: 'replace' | 'add' | 'subtract' | 'toggle' = 'toggle'): void {
 		if (!this.selection_rect) return;
 
 		const rect = this.getNormalizedRect(this.selection_rect);
 		const nodes_in_rect = this.getNodesInRect(rect);
 
-		// Toggle selection for nodes in rectangle
-		const new_selected = new Set(this.selected_node_ids);
-		for (const node of nodes_in_rect) {
-			if (new_selected.has(node.id)) {
-				new_selected.delete(node.id); // Unselect if already selected
-			} else {
-				new_selected.add(node.id); // Select if not selected
+		let new_selected = new Set(this.selected_node_ids);
+		if (mode === 'replace') {
+			new_selected = new Set(nodes_in_rect.map((node) => node.id));
+		} else {
+			for (const node of nodes_in_rect) {
+				if (mode === 'subtract') {
+					new_selected.delete(node.id);
+				} else if (mode === 'add') {
+					new_selected.add(node.id);
+				} else if (new_selected.has(node.id)) {
+					new_selected.delete(node.id);
+				} else {
+					new_selected.add(node.id);
+				}
 			}
 		}
 		this.selected_node_ids = new_selected;
@@ -1052,7 +1341,7 @@ export class FlowState {
 				id: n.id,
 				type: n.type,
 				position: { ...n.position },
-				data: { ...n.data },
+				data: cloneSerializable(n.data),
 				width: n.width,
 				height: n.height,
 				parent_id: n.parent_id,
@@ -1084,9 +1373,11 @@ export class FlowState {
 			nodes: copied_nodes,
 			edges: copied_edges,
 		};
-		navigator.clipboard.writeText(JSON.stringify(clipboard_data)).catch((err) => {
-			console.warn('Failed to write to system clipboard:', err);
-		});
+		if (typeof navigator !== 'undefined' && navigator.clipboard) {
+			navigator.clipboard.writeText(JSON.stringify(clipboard_data)).catch((err) => {
+				console.warn('Failed to write to system clipboard:', err);
+			});
+		}
 	}
 
 	// Paste from internal clipboard or provided data
@@ -1185,13 +1476,7 @@ export class FlowState {
 		// handles to be registered. But handles are registered when Handle components
 		// mount, which happens after paste() completes.
 		for (const node of new_nodes) {
-			const node_state: NodeState = {
-				...node,
-				handles: new Map(),
-				computed_width: node.width ?? 0,
-				computed_height: node.height ?? 0,
-			};
-			this.nodes.push(node_state);
+			this.nodes.push(this.createNodeState(node));
 		}
 		this.edges.push(...new_edges);
 
@@ -1199,6 +1484,7 @@ export class FlowState {
 		this.selected_node_ids = new Set(new_nodes.map((n) => n.id));
 		this.selected_edge_ids = new Set();
 		this.notifySelectionChange();
+		this.notifyChange('clipboard:paste');
 	}
 }
 
