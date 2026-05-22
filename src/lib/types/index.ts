@@ -6,6 +6,25 @@ export interface Position {
 	y: number;
 }
 
+// Rectangle bounds in canvas coordinates
+export interface Rect {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+// Common fixed overlay positions for panels/controls
+export type PanelPosition =
+	| 'top-left'
+	| 'top-center'
+	| 'top-right'
+	| 'center-left'
+	| 'center-right'
+	| 'bottom-left'
+	| 'bottom-center'
+	| 'bottom-right';
+
 // Handle position on a node
 export type HandlePosition = 'left' | 'right' | 'top' | 'bottom';
 
@@ -65,14 +84,17 @@ export interface NodeState<T = Record<string, unknown>> extends FlowNode<T> {
 	computed_height: number;
 }
 
-// Edge type for rendering
-export type EdgeType = 'bezier' | 'straight' | 'step';
+// Built-in edge types for rendering
+export type BuiltinEdgeType = 'bezier' | 'straight' | 'step';
+
+// Edge type for rendering. Custom strings are resolved through EdgeTypes.
+export type EdgeType = BuiltinEdgeType | (string & {});
 
 // Edge stroke style
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 
 // Flow edge definition
-export interface FlowEdge {
+export interface FlowEdge<T = Record<string, unknown>> {
 	// Unique edge ID
 	id: string;
 	// Source node ID
@@ -97,6 +119,67 @@ export interface FlowEdge {
 	animated?: boolean;
 	// Optional: custom stroke color
 	color?: string;
+	// Optional custom data for custom edge components
+	data?: T;
+}
+
+export interface VirtualWireChannel {
+	// Stable channel ID, usually "1", "2", "3", etc.
+	id: string;
+	// Optional display label. Defaults to the channel ID.
+	label?: string;
+	// Optional known port type. Virtual inputs can infer this from incoming edges.
+	port?: string;
+}
+
+export interface VirtualWireNodeData {
+	// Shared ID linking virtual-wire-input and virtual-wire-output nodes.
+	pair_id: string;
+	// Optional shared display name for the portal pair. Does not affect pairing.
+	pair_label?: string;
+	// Optional title shown in the built-in node UI.
+	label?: string;
+	// Optional accent color shared by the pair.
+	color?: string;
+	// Numbered virtual channels exposed as handles.
+	channels?: VirtualWireChannel[];
+}
+
+export interface VirtualWireResolvedEdgeData {
+	kaykay_virtual_wire: {
+		version: 1;
+		pair_id: string;
+		channel_id: string;
+		input_node_id: string;
+		output_node_id: string;
+		input_edge_id: string;
+		output_edge_id: string;
+	};
+}
+
+export interface VirtualWireFlowMetadata {
+	version: 1;
+	nodes: FlowNode[];
+	edges: FlowEdge[];
+}
+
+export interface KaykayFlowMetadata {
+	version: 1;
+	virtual_wires?: VirtualWireFlowMetadata;
+}
+
+export interface EdgeProps<T = Record<string, unknown>> {
+	edge: FlowEdge<T>;
+	id: string;
+	selected: boolean;
+	source_position: Position;
+	target_position: Position;
+	source_handle: HandleState;
+	target_handle: HandleState;
+	path: string;
+	paths: string[];
+	label_position: Position;
+	onselect: () => void;
 }
 
 // Connection validation details passed to custom validators
@@ -119,6 +202,8 @@ export type ConnectionValidationResult = boolean | string | ConnectionValidation
 export interface Flow {
 	nodes: FlowNode[];
 	edges: FlowEdge[];
+	// Optional kaykay editor metadata. Older engines can ignore this and read nodes/edges only.
+	kaykay?: KaykayFlowMetadata;
 }
 
 export type FlowChangeReason =
@@ -130,6 +215,7 @@ export type FlowChangeReason =
 	| 'node:parent'
 	| 'edge:add'
 	| 'edge:remove'
+	| 'edge:reconnect'
 	| 'edge:update'
 	| 'edge:waypoint'
 	| 'selection:update'
@@ -176,11 +262,20 @@ export interface DraftConnection {
 	source_position: Position;
 	// Current mouse position
 	target_position: Position;
+	// Reconnect mode metadata when dragging an existing edge endpoint
+	reconnect_edge_id?: string;
+	reconnect_type?: 'source' | 'target';
+	fixed_target_node_id?: string;
+	fixed_target_handle_id?: string;
 }
 
 // Node type registry mapping type names to Svelte components
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type NodeTypes = Record<string, Component<NodeProps<any>>>;
+
+// Edge type registry mapping type names to Svelte components
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type EdgeTypes = Record<string, Component<EdgeProps<any>>>;
 
 // Configuration for flow behavior
 export interface FlowConfig {
@@ -198,6 +293,22 @@ export interface FlowConfig {
 	default_edge_type?: EdgeType;
 	// Lock the flow to prevent modifications (nodes can't be moved, edges can't be created/deleted)
 	locked?: boolean;
+	// Allow nodes to be dragged by pointer interaction
+	nodes_draggable?: boolean;
+	// Allow users to create or reconnect edges through handles
+	nodes_connectable?: boolean;
+	// Allow users to select nodes and edges through pointer/keyboard interaction
+	elements_selectable?: boolean;
+	// Start a selection rectangle by dragging the pane without a modifier key
+	selection_on_drag?: boolean;
+	// Allow background pointer dragging to pan the viewport
+	pan_on_drag?: boolean;
+	// Allow wheel/trackpad scrolling to pan the viewport
+	pan_on_scroll?: boolean;
+	// Zoom with plain wheel/trackpad scrolling instead of requiring Ctrl/Meta
+	zoom_on_scroll?: boolean;
+	// Make nodes keyboard focusable/selectable
+	nodes_focusable?: boolean;
 	// Maximum number of undo history steps (default: 50)
 	max_history?: number;
 	// Maximum number of edges that can target one input handle
@@ -217,6 +328,7 @@ export interface FlowCallbacks {
 	on_node_drag_end?: (node_id: string, position: Position) => void;
 	on_connect?: (edge: FlowEdge) => void;
 	on_edge_click?: (edge_id: string) => void;
+	on_edge_reconnect?: (edge: FlowEdge) => void;
 	on_delete?: (node_ids: string[], edge_ids: string[]) => void;
 	on_viewport_change?: (viewport: Viewport) => void;
 	on_selection_change?: (node_ids: string[], edge_ids: string[]) => void;

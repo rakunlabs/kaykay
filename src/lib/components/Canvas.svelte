@@ -1,23 +1,29 @@
 <script lang="ts">
 	import { setContext, onMount } from 'svelte';
 	import type {
+		Flow,
 		FlowNode,
 		FlowEdge,
 		NodeTypes,
+		EdgeTypes,
 		NodeStatus,
 		FlowConfig,
 		FlowCallbacks,
 		Position,
 	} from '../types/index.js';
 	import { FlowState } from '../stores/flow.svelte.js';
+	import { hydrateVirtualWireFlow } from '../utils/virtual-wire.js';
 	import Node from './Node.svelte';
 	import Edge from './Edge.svelte';
 	import DraftEdge from './DraftEdge.svelte';
 
 	interface Props {
+		/** Full serialized flow. Prefer this when loading JSON returned by flow.toJSON(). */
+		flow?: Flow;
 		nodes?: FlowNode[];
 		edges?: FlowEdge[];
 		nodeTypes: NodeTypes;
+		edgeTypes?: EdgeTypes;
 		config?: FlowConfig;
 		callbacks?: FlowCallbacks;
 		/** Per-node execution status. Keys are node IDs, values are status strings. */
@@ -29,9 +35,11 @@
 	}
 
 	let {
+		flow: initial_flow,
 		nodes = [],
 		edges = [],
 		nodeTypes,
+		edgeTypes = {},
 		config = {},
 		callbacks = {},
 		node_statuses = {},
@@ -46,7 +54,9 @@
 	// Create flow state - we intentionally capture initial values here
 	// The flow manages its own reactive state internally
 	// svelte-ignore state_referenced_locally
-	const flow = new FlowState(nodes, edges, config, callbacks);
+	const initial_canvas_flow = initial_flow ? hydrateVirtualWireFlow(initial_flow) : { nodes, edges };
+	// svelte-ignore state_referenced_locally
+	const flow = new FlowState(initial_canvas_flow.nodes, initial_canvas_flow.edges, config, callbacks);
 	setContext(FLOW_CONTEXT_KEY, flow);
 
 	// Export flow for external access
@@ -122,7 +132,7 @@
 	// Handle mouse wheel for panning (default) or zooming (Ctrl+scroll)
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
-		if (e.ctrlKey || e.metaKey) {
+		if (flow.config.zoom_on_scroll || e.ctrlKey || e.metaKey) {
 			// Ctrl+scroll: zoom toward cursor
 			const rect = containerEl.getBoundingClientRect();
 			const center = {
@@ -130,7 +140,7 @@
 				y: e.clientY - rect.top,
 			};
 			flow.zoom(-e.deltaY * 0.001, center);
-		} else {
+		} else if (flow.config.pan_on_scroll) {
 			// Normal scroll / two-finger trackpad: pan
 			flow.pan(-e.deltaX, -e.deltaY);
 		}
@@ -155,7 +165,8 @@
 		}
 
 		// Modifier + left click on background starts selection rectangle.
-		if (e.button === 0 && (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) && !isOnNode && !isOnHandle && !isOnEdge) {
+		const shouldStartSelection = flow.config.selection_on_drag || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey;
+		if (e.button === 0 && shouldStartSelection && !isOnNode && !isOnHandle && !isOnEdge) {
 			e.preventDefault();
 			isSelecting = true;
 			selectionMode = e.altKey ? 'subtract' : e.shiftKey ? 'add' : e.ctrlKey || e.metaKey ? 'toggle' : 'replace';
@@ -169,10 +180,10 @@
 		}
 		
 		// Only pan on middle mouse or when clicking on canvas background (not nodes/handles/edges)
-		if (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge)) {
+		if (flow.config.pan_on_drag && (e.button === 1 || (e.button === 0 && !isOnNode && !isOnHandle && !isOnEdge))) {
 			isPanning = true;
 			lastMousePos = { x: e.clientX, y: e.clientY };
-			flow.clearSelection();
+			if (flow.config.elements_selectable) flow.clearSelection();
 		}
 		
 		// Reset drag distance when starting a new potential connection
@@ -245,7 +256,8 @@
 				const nodeEl = handleEl.closest('[data-node-id]') as HTMLElement;
 				const nodeId = nodeEl?.getAttribute('data-node-id');
 				
-				if (handleId && nodeId && handleType === 'input') {
+				const expectedHandleType = flow.draft_connection.reconnect_type === 'source' ? 'output' : 'input';
+				if (handleId && nodeId && handleType === expectedHandleType) {
 					flow.finishConnection(nodeId, handleId);
 					connectionDragDistance = 0;
 					return;
@@ -413,11 +425,11 @@
 			e.preventDefault();
 			lastTouchCenter = getTouchCenter(e.touches);
 			lastTouchDistance = getTouchDistance(e.touches);
-		} else if (e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge) {
+		} else if (flow.config.pan_on_drag && e.touches.length === 1 && !isOnNode && !isOnHandle && !isOnEdge) {
 			// Single touch panning on canvas background
 			isTouchPanning = true;
 			lastTouchCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-			flow.clearSelection();
+			if (flow.config.elements_selectable) flow.clearSelection();
 		}
 
 		connectionDragDistance = 0;
@@ -488,7 +500,8 @@
 					const nodeEl = handleEl.closest('[data-node-id]') as HTMLElement;
 					const nodeId = nodeEl?.getAttribute('data-node-id');
 
-					if (handleId && nodeId && handleType === 'input') {
+					const expectedHandleType = flow.draft_connection.reconnect_type === 'source' ? 'output' : 'input';
+					if (handleId && nodeId && handleType === expectedHandleType) {
 						flow.finishConnection(nodeId, handleId);
 						connectionDragDistance = 0;
 						isTouchPanning = false;
@@ -565,6 +578,7 @@
 		{#each flow.edges as edge (edge.id)}
 			<Edge
 				{edge}
+				component={edge.type ? edgeTypes[edge.type] : undefined}
 				selected={flow.selected_edge_ids.has(edge.id)}
 				onselect={() => flow.selectEdge(edge.id)}
 			/>

@@ -1,4 +1,4 @@
-import type { Position, HandlePosition, EdgeType } from '../types/index.js';
+import type { Position, HandlePosition, BuiltinEdgeType } from '../types/index.js';
 
 // Calculate bezier curve control points based on handle positions
 export function getBezierPath(
@@ -51,7 +51,7 @@ export function getEdgePath(
 	sourceHandlePosition: HandlePosition,
 	targetPos: Position,
 	targetHandlePosition: HandlePosition,
-	type: EdgeType = 'bezier'
+	type: BuiltinEdgeType = 'bezier'
 ): string {
 	switch (type) {
 		case 'straight':
@@ -70,7 +70,7 @@ export function getEdgePathWithWaypoints(
 	sourceHandlePosition: HandlePosition,
 	targetPos: Position,
 	targetHandlePosition: HandlePosition,
-	type: EdgeType = 'bezier',
+	type: BuiltinEdgeType = 'bezier',
 	waypoints: Position[] = []
 ): string[] {
 	if (waypoints.length === 0) {

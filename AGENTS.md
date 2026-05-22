@@ -2,6 +2,8 @@
 
 This document provides guidelines for AI coding agents working on the kaykay codebase - a Svelte 5 flow/node editor library with typed port connections.
 
+For a concise, skill-style project guide that other AI agents can discover from the repository root, also read [`SKILL.md`](./SKILL.md).
+
 ## Project Overview
 
 - **Name**: kaykay

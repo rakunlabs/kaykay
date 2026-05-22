@@ -114,13 +114,13 @@
 
 		<div class="sidebar-footer">
 			<button class="theme-btn" onclick={toggleTheme} title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}>
-				{theme === 'dark' ? '☀️' : '🌙'}
+				<span class="footer-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
 				{#if sidebarOpen}
 					<span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
 				{/if}
 			</button>
 			<a href="https://github.com/rakunlabs/kaykay" target="_blank" class="repo-link" title="GitHub">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+				<svg class="footer-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
 					<path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
 				</svg>
 				{#if sidebarOpen}
@@ -160,11 +160,48 @@
 		overflow: hidden;
 		background: #252422;
 		color: #fff;
+		--kaykay-scrollbar-track: rgba(255, 255, 255, 0.03);
+		--kaykay-scrollbar-thumb: rgba(120, 120, 120, 0.46);
+		--kaykay-scrollbar-thumb-hover: rgba(150, 150, 150, 0.68);
 	}
 
 	.app-container.kaykay-light {
 		background: #f5f5f5;
 		color: #000;
+		--kaykay-scrollbar-track: rgba(0, 0, 0, 0.04);
+		--kaykay-scrollbar-thumb: rgba(82, 82, 82, 0.38);
+		--kaykay-scrollbar-thumb-hover: rgba(82, 82, 82, 0.62);
+	}
+
+	.sidebar-nav,
+	.main-content {
+		scrollbar-width: thin;
+		scrollbar-color: var(--kaykay-scrollbar-thumb) var(--kaykay-scrollbar-track);
+	}
+
+	.sidebar-nav::-webkit-scrollbar,
+	.main-content::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+
+	.sidebar-nav::-webkit-scrollbar-track,
+	.main-content::-webkit-scrollbar-track {
+		background: var(--kaykay-scrollbar-track);
+	}
+
+	.sidebar-nav::-webkit-scrollbar-thumb,
+	.main-content::-webkit-scrollbar-thumb {
+		background: var(--kaykay-scrollbar-thumb);
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background-clip: padding-box;
+	}
+
+	.sidebar-nav::-webkit-scrollbar-thumb:hover,
+	.main-content::-webkit-scrollbar-thumb:hover {
+		background: var(--kaykay-scrollbar-thumb-hover);
+		background-clip: padding-box;
 	}
 
 	/* Sidebar */
@@ -190,6 +227,7 @@
 	}
 
 	.sidebar-header {
+		box-sizing: border-box;
 		height: 58px;
 		display: flex;
 		align-items: center;
@@ -199,6 +237,11 @@
 		text-decoration: none;
 		color: inherit;
 		transition: background 0.15s ease;
+	}
+
+	.sidebar.collapsed .sidebar-header {
+		justify-content: center;
+		padding: 16px 0;
 	}
 
 	.sidebar-header:hover {
@@ -246,14 +289,22 @@
 	}
 
 	.nav-item {
+		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		gap: 12px;
+		min-height: 40px;
 		padding: 10px 12px;
 		text-decoration: none;
 		color: inherit;
 		margin-bottom: 4px;
 		transition: all 0.15s ease;
+	}
+
+	.sidebar.collapsed .nav-item {
+		justify-content: center;
+		gap: 0;
+		padding: 10px 0;
 	}
 
 	.nav-item:hover {
@@ -279,13 +330,23 @@
 	}
 
 	.nav-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
 		font-size: 1.1rem;
+		line-height: 1;
+		text-align: center;
 		flex-shrink: 0;
 	}
 
 	.nav-label {
+		min-width: 0;
 		font-size: 0.9rem;
 		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	/* Sidebar Footer */
@@ -316,6 +377,23 @@
 		transition: background 0.15s ease;
 		font-family: inherit;
 		font-size: inherit;
+	}
+
+	.footer-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		line-height: 1;
+		text-align: center;
+		flex: 0 0 20px;
+	}
+
+	.sidebar.collapsed .theme-btn,
+	.sidebar.collapsed .repo-link {
+		justify-content: center;
+		padding: 0;
 	}
 
 	.theme-btn:hover {

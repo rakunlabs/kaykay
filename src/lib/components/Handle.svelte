@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount, onDestroy, type Snippet } from 'svelte';
+	import { getContext, onMount, onDestroy, untrack, type Snippet } from 'svelte';
 	import type { HandleType, HandlePosition, Position } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 
@@ -19,7 +19,7 @@
 		children?: Snippet;
 	}
 
-	const {
+	let {
 		id,
 		type,
 		port,
@@ -78,6 +78,16 @@
 		if (node_id) {
 			flow.unregisterHandle(node_id, id);
 		}
+	});
+
+	$effect(() => {
+		if (!isInitialized || !node_id) return;
+
+		const metadata_signature = `${id}|${type}|${port}|${effectivePosition}|${label ?? ''}|${accept?.join('|') ?? ''}`;
+		untrack(() => {
+			void metadata_signature;
+			registerHandle(handle_offset);
+		});
 	});
 
 	function calculateHandleOffset(): Position | null {
@@ -165,6 +175,20 @@
 
 	const connection_validation = $derived.by(() => {
 		if (!flow.draft_connection) return false;
+		if (flow.draft_connection.reconnect_type === 'source') {
+			if (type !== 'output') return false;
+			if (!flow.draft_connection.fixed_target_node_id || !flow.draft_connection.fixed_target_handle_id) return false;
+			if (flow.draft_connection.fixed_target_node_id === node_id) return false;
+
+			return flow.getConnectionValidation(
+				node_id,
+				id,
+				flow.draft_connection.fixed_target_node_id,
+				flow.draft_connection.fixed_target_handle_id,
+				flow.draft_connection.reconnect_edge_id
+			);
+		}
+
 		if (type !== 'input') return false;
 		if (flow.draft_connection.source_node_id === node_id) return false;
 
@@ -172,7 +196,8 @@
 			flow.draft_connection.source_node_id,
 			flow.draft_connection.source_handle_id,
 			node_id,
-			id
+			id,
+			flow.draft_connection.reconnect_edge_id
 		);
 	});
 
@@ -193,6 +218,7 @@
 	// Check if this output handle should be disabled (when a draft connection is active)
 	const is_output_disabled = $derived.by(() => {
 		if (!flow.draft_connection) return false;
+		if (flow.draft_connection.reconnect_type === 'source') return false;
 		if (type !== 'output') return false;
 		// The source handle itself is not disabled (it's "connecting")
 		if (flow.draft_connection.source_node_id === node_id && 
@@ -202,7 +228,7 @@
 
 	function handleMouseDown(e: MouseEvent) {
 		if (type !== 'output') return;
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
 		e.stopPropagation();
 
 		// Recalculate offset before starting connection (in case layout changed)
@@ -212,21 +238,27 @@
 	}
 
 	function handleMouseUp(e: MouseEvent) {
-		if (type !== 'input') return;
 		if (!flow.draft_connection) return;
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
+		if (flow.draft_connection.reconnect_type === 'source' && type !== 'output') return;
+		if (flow.draft_connection.reconnect_type !== 'source' && type !== 'input') return;
 		e.stopPropagation();
 
 		flow.finishConnection(node_id, id);
 	}
 
 	function handleClick(e: MouseEvent) {
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
 		e.stopPropagation();
 
 		// If there's an active draft connection and this is an input handle, finish it
-		if (flow.draft_connection && type === 'input') {
-			if (flow.draft_connection.source_node_id !== node_id) {
+		if (flow.draft_connection) {
+			const isSourceReconnect = flow.draft_connection.reconnect_type === 'source';
+			const canFinish = isSourceReconnect ? type === 'output' : type === 'input';
+			const sameNode = isSourceReconnect
+				? flow.draft_connection.fixed_target_node_id === node_id
+				: flow.draft_connection.source_node_id === node_id;
+			if (canFinish && !sameNode) {
 				flow.finishConnection(node_id, id);
 			}
 			return;
@@ -242,13 +274,18 @@
 
 	function handleKeyDown(e: KeyboardEvent) {
 		if (e.key !== 'Enter' && e.key !== ' ') return;
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
 
 		e.preventDefault();
 		e.stopPropagation();
 
-		if (flow.draft_connection && type === 'input') {
-			if (flow.draft_connection.source_node_id !== node_id) {
+		if (flow.draft_connection) {
+			const isSourceReconnect = flow.draft_connection.reconnect_type === 'source';
+			const canFinish = isSourceReconnect ? type === 'output' : type === 'input';
+			const sameNode = isSourceReconnect
+				? flow.draft_connection.fixed_target_node_id === node_id
+				: flow.draft_connection.source_node_id === node_id;
+			if (canFinish && !sameNode) {
 				flow.finishConnection(node_id, id);
 			}
 			return;
@@ -268,12 +305,17 @@
 	// Touch event handlers for connection creation
 	function handleTouchStart(e: TouchEvent) {
 		if (e.touches.length !== 1) return;
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
 		e.stopPropagation();
 
 		// If there's an active draft connection and this is an input handle, finish it
-		if (flow.draft_connection && type === 'input') {
-			if (flow.draft_connection.source_node_id !== node_id) {
+		if (flow.draft_connection) {
+			const isSourceReconnect = flow.draft_connection.reconnect_type === 'source';
+			const canFinish = isSourceReconnect ? type === 'output' : type === 'input';
+			const sameNode = isSourceReconnect
+				? flow.draft_connection.fixed_target_node_id === node_id
+				: flow.draft_connection.source_node_id === node_id;
+			if (canFinish && !sameNode) {
 				flow.finishConnection(node_id, id);
 			}
 			return;
@@ -288,9 +330,10 @@
 	}
 
 	function handleTouchEnd(e: TouchEvent) {
-		if (type !== 'input') return;
 		if (!flow.draft_connection) return;
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_connectable) return;
+		if (flow.draft_connection.reconnect_type === 'source' && type !== 'output') return;
+		if (flow.draft_connection.reconnect_type !== 'source' && type !== 'input') return;
 		e.stopPropagation();
 
 		// Check if the touch ended on this handle
@@ -337,7 +380,7 @@
 	role="button"
 	tabindex="0"
 	aria-label={accessibleLabel}
-	aria-disabled={flow.locked || is_output_disabled}
+	aria-disabled={flow.locked || !flow.config.nodes_connectable || is_output_disabled}
 	data-handle-id={id}
 	data-handle-type={type}
 	data-handle-port={port}

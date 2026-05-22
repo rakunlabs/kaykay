@@ -132,6 +132,75 @@ Group nodes use the following data properties:
 - `label` - Display name shown above the group
 - `color` - Border and label color (also tints the background)
 
+## Virtual Wire Nodes
+
+Use `VirtualWireInputNode` and `VirtualWireOutputNode` to make a long or crowded connection behave like a portal. The canvas shows only local edges into and out of the portal nodes; it does not draw a long cable between the pair.
+
+Both nodes share the same `pair_id`. Channel `1` on the input maps to channel `1` on the output, channel `2` maps to channel `2`, and so on. Users can edit the shared pair display name, add channels from the header `+`, rename channel labels inline, and delete unused channels. Pair and channel IDs stay stable in kaykay editor metadata while labels are user-editable.
+
+```svelte
+<script lang="ts">
+  import {
+    Canvas,
+    VirtualWireInputNode,
+    VirtualWireOutputNode,
+    resolveVirtualWireEdges
+  } from 'kaykay';
+  import type { FlowEdge, FlowNode, NodeTypes } from 'kaykay';
+
+  let nodes: FlowNode[] = $state([
+    { id: 'source', type: 'custom', position: { x: 60, y: 120 }, data: { label: 'Source' } },
+    {
+      id: 'wire-in',
+      type: 'virtual-wire-input',
+      position: { x: 280, y: 120 },
+      data: { pair_id: 'bus-a', pair_label: 'Bus A', label: 'Bus In', channels: [{ id: '1', label: '1' }] }
+    },
+    {
+      id: 'wire-out',
+      type: 'virtual-wire-output',
+      position: { x: 720, y: 120 },
+      data: { pair_id: 'bus-a', pair_label: 'Bus A', label: 'Bus Out', channels: [{ id: '1', label: '1' }] }
+    },
+    { id: 'target', type: 'custom', position: { x: 940, y: 120 }, data: { label: 'Target' } }
+  ]);
+
+  let edges: FlowEdge[] = $state([
+    { id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
+    { id: 'wire-target', source: 'wire-out', source_handle: 'out-1', target: 'target', target_handle: 'in' }
+  ]);
+
+  const nodeTypes: NodeTypes = {
+    custom: MyCustomNode,
+    'virtual-wire-input': VirtualWireInputNode,
+    'virtual-wire-output': VirtualWireOutputNode
+  };
+
+  $effect(() => {
+    const logicalEdges = resolveVirtualWireEdges(nodes, edges);
+    // logicalEdges contains source -> target instead of the two physical portal segments.
+  });
+</script>
+
+<Canvas {nodes} {edges} {nodeTypes} />
+```
+
+`flow.toJSON()` serializes virtual wires as backend-compatible direct edges in `nodes` and `edges`, with the editor-only portal details under `kaykay.virtual_wires`. Older backends and UIs can ignore the `kaykay` key and execute/render the direct edge. New kaykay UIs restore the virtual wire nodes from that metadata.
+
+Compatibility notes:
+
+- To restore the portal UI from saved JSON, pass the full saved flow to `<Canvas flow={json}>` for initial load or call `flow.fromJSON(json)` after mount. Passing only `json.nodes` and `json.edges` to `<Canvas>` intentionally renders the backend-compatible direct edges because the top-level `kaykay` metadata is not available.
+- During `fromJSON()`, current direct edges are the source of truth. If an older tool deletes or retargets a flattened direct edge, kaykay mirrors that change instead of restoring stale portal connections.
+- Resolved direct edges use namespaced metadata at `edge.data.kaykay_virtual_wire`; consumers should ignore unknown `edge.data` keys unless they explicitly need kaykay editor details.
+
+Virtual wire data properties:
+
+- `pair_id` - Shared ID linking the input and output portal nodes
+- `pair_label` - Optional shared display name shown in the header; does not affect pairing
+- `channels` - Numbered channel definitions, e.g. `{ id: '1', label: '1' }`
+- `label` - Optional title shown in the node
+- `color` - Optional accent color shared by the pair
+
 ## Port Type Validation
 
 Connections are validated based on port types:
@@ -248,6 +317,130 @@ The Canvas provides these built-in interactions:
 - **Connect**: Click and drag from an output handle to an input handle
 - **Move Nodes**: Click and drag nodes
 - **Edge Waypoints**: Ctrl/Meta+click on an edge to add a waypoint, drag waypoints to reposition, Ctrl/Meta+click a waypoint to remove it
+
+## Custom Edges
+
+Register custom edge components with `edgeTypes`. Custom edge components receive `EdgeProps` including source/target positions, handles, the computed SVG path, selection state, and `onselect`.
+
+```svelte
+<script lang="ts">
+  import { BaseEdge, type EdgeProps } from 'kaykay';
+
+  let { path, selected, edge, label_position, onselect }: EdgeProps<{ tone?: string }> = $props();
+</script>
+
+<BaseEdge
+  {path}
+  {selected}
+  label={edge.label}
+  {label_position}
+  color={edge.data?.tone ?? '#3b82f6'}
+  onclick={(event) => {
+    event.stopPropagation();
+    onselect();
+  }}
+/>
+```
+
+```svelte
+<Canvas {nodes} {edges} {nodeTypes} edgeTypes={{ custom: CustomEdge }} />
+```
+
+Set an edge's `type` to the key registered in `edgeTypes`:
+
+```typescript
+const edges = [
+  {
+    id: 'custom-edge',
+    source: 'a',
+    source_handle: 'out',
+    target: 'b',
+    target_handle: 'in',
+    type: 'custom',
+    data: { tone: '#f97316' }
+  }
+];
+```
+
+Selected built-in edges also expose reconnect anchors. Drag either endpoint to another compatible handle to reconnect the existing edge.
+
+## Overlay Components
+
+Use `Panel` for fixed canvas UI, `ViewportPortal` for content that moves and scales with the flow coordinate system, and `Background` for custom grid variants.
+
+```svelte
+<script lang="ts">
+  import { Background, Canvas, Controls, Panel, ViewportPortal } from 'kaykay';
+
+  let canvasRef: ReturnType<typeof Canvas> | undefined;
+</script>
+
+<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes}>
+  <Background variant="lines" color="rgba(59, 130, 246, 0.2)" />
+  <Panel position="top-right">
+    <button onclick={() => canvasRef?.getFlow().fitView()}>Fit</button>
+  </Panel>
+  <ViewportPortal target="front">
+    <div style="position: absolute; transform: translate(100px, 100px); pointer-events: auto;">
+      Viewport overlay
+    </div>
+  </ViewportPortal>
+  <Controls />
+</Canvas>
+```
+
+## Generic Node Resizer
+
+Add `NodeResizer` inside any custom node component. It automatically finds the parent kaykay node if `node_id` is omitted.
+
+```svelte
+<script lang="ts">
+  import { Handle, NodeResizer, type NodeProps } from 'kaykay';
+
+  let { selected, data }: NodeProps<{ label: string }> = $props();
+</script>
+
+<div class="resizable-node">
+  <NodeResizer is_visible={selected} min_width={120} min_height={80} />
+  <strong>{data.label}</strong>
+  <Handle id="in" type="input" port="data" position="left" />
+  <Handle id="out" type="output" port="data" position="right" />
+</div>
+```
+
+## Graph Utilities
+
+kaykay exports utility helpers for common graph operations:
+
+```typescript
+import {
+  getConnectedEdges,
+  getIncomers,
+  getNodesBounds,
+  getOutgoers,
+  getViewportForBounds,
+  isEdge,
+  isNode,
+  resolveVirtualWireEdges
+} from 'kaykay';
+```
+
+## Interaction Configuration
+
+Use `FlowConfig` toggles to customize editing behavior:
+
+```typescript
+const config = {
+  nodes_draggable: true,
+  nodes_connectable: true,
+  elements_selectable: true,
+  selection_on_drag: false,
+  pan_on_drag: true,
+  pan_on_scroll: true,
+  zoom_on_scroll: false,
+  nodes_focusable: true
+};
+```
 
 ## Styling Custom Nodes
 

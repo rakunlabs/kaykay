@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { getContext, onDestroy } from 'svelte';
-	import type { FlowEdge, Position, EdgeStyle, EdgeType } from '../types/index.js';
+	import type { Component } from 'svelte';
+	import type { FlowEdge, Position, EdgeStyle, EdgeType, BuiltinEdgeType, EdgeProps } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
 	import { getEdgePathWithWaypoints, getEdgeCenter } from '../utils/edge-path.js';
 
 	interface Props {
 		edge: FlowEdge;
+		component?: Component<EdgeProps>;
 		selected: boolean;
 		onselect: () => void;
 	}
 
-	const { edge, selected, onselect }: Props = $props();
+	const { edge, component, selected, onselect }: Props = $props();
 
 	const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 	const flow = getContext<FlowState>(FLOW_CONTEXT_KEY);
@@ -87,6 +89,18 @@
 	const strokeDashArray = $derived(getStrokeDashArray(edge.style));
 	const isAnimated = $derived(edge.animated ?? false);
 	const isHighlighted = $derived(Boolean((edge as FlowEdge & { highlighted?: boolean }).highlighted));
+	const builtinType = $derived(toBuiltinEdgeType(edge.type));
+
+	function toBuiltinEdgeType(type: EdgeType | undefined): BuiltinEdgeType {
+		switch (type) {
+			case 'straight':
+				return 'straight';
+			case 'step':
+				return 'step';
+			default:
+				return 'bezier';
+		}
+	}
 
 	// Get reactive handle positions - these update when nodes move
 	const source_position = $derived(flow.getHandlePosition(edge.source, edge.source_handle));
@@ -104,7 +118,7 @@
 			source_handle.position,
 			target_position,
 			target_handle.position,
-			edge.type ?? 'bezier',
+			builtinType,
 			waypoints
 		);
 	});
@@ -147,8 +161,47 @@
 		return getEdgeCenter(source_position, target_position);
 	});
 
+	const customEdgeProps = $derived.by<EdgeProps | null>(() => {
+		if (!component || !source_handle || !target_handle || !source_position || !target_position || !combinedPath) {
+			return null;
+		}
+
+		return {
+			edge,
+			id: edge.id,
+			selected,
+			source_position,
+			target_position,
+			source_handle,
+			target_handle,
+			path: combinedPath,
+			paths,
+			label_position,
+			onselect,
+		};
+	});
+
 	// Dragging waypoint state
 	let draggingWaypointIndex = $state<number | null>(null);
+	let waypointDragCanvas: HTMLElement | null = null;
+
+	function getCanvasElementFromEvent(e: MouseEvent): HTMLElement | null {
+		const target = e.currentTarget;
+		if (!(target instanceof SVGElement)) return null;
+
+		const svg = target instanceof SVGSVGElement ? target : target.ownerSVGElement;
+		return svg?.closest('.kaykay-canvas') as HTMLElement | null;
+	}
+
+	function getCanvasPositionFromEvent(e: MouseEvent, canvasEl = getCanvasElementFromEvent(e)): Position | null {
+		if (!canvasEl) return null;
+
+		const rect = canvasEl.getBoundingClientRect();
+		return flow.screenToCanvas({
+			x: e.clientX - rect.left,
+			y: e.clientY - rect.top,
+		});
+	}
 
 	function handleClick(e: MouseEvent) {
 		e.stopPropagation();
@@ -156,15 +209,9 @@
 		// Ctrl+click to add waypoint
 		if (e.ctrlKey || e.metaKey) {
 			if (flow.locked) return;
-			
-			// Get click position in canvas coordinates
-			const rect = (e.currentTarget as SVGElement).ownerSVGElement?.getBoundingClientRect();
-			if (!rect) return;
 
-			const clickPos: Position = flow.screenToCanvas({
-				x: e.clientX - rect.left,
-				y: e.clientY - rect.top,
-			});
+			const clickPos = getCanvasPositionFromEvent(e);
+			if (!clickPos) return;
 
 			// Find the best index to insert the waypoint
 			const insertIndex = findBestWaypointIndex(clickPos);
@@ -172,7 +219,7 @@
 			return;
 		}
 
-		onselect();
+		if (flow.config.elements_selectable) onselect();
 	}
 
 	// Find the best index to insert a new waypoint based on click position
@@ -229,6 +276,7 @@
 		}
 
 		draggingWaypointIndex = index;
+		waypointDragCanvas = getCanvasElementFromEvent(e);
 		flow.beginTransaction();
 
 		window.addEventListener('mousemove', handleWaypointDrag);
@@ -238,20 +286,15 @@
 	function handleWaypointDrag(e: MouseEvent) {
 		if (draggingWaypointIndex === null) return;
 
-		const canvasEl = document.querySelector('.kaykay-canvas');
-		if (!canvasEl) return;
-
-		const rect = canvasEl.getBoundingClientRect();
-		const newPos: Position = flow.screenToCanvas({
-			x: e.clientX - rect.left,
-			y: e.clientY - rect.top,
-		});
+		const newPos = getCanvasPositionFromEvent(e, waypointDragCanvas);
+		if (!newPos) return;
 
 		flow.updateEdgeWaypoint(edge.id, draggingWaypointIndex, newPos);
 	}
 
 	function handleWaypointMouseUp() {
 		draggingWaypointIndex = null;
+		waypointDragCanvas = null;
 		flow.endTransaction(true, 'edge:waypoint');
 		window.removeEventListener('mousemove', handleWaypointDrag);
 		window.removeEventListener('mouseup', handleWaypointMouseUp);
@@ -268,13 +311,21 @@
 		showContextMenu = true;
 
 		// Select the edge when right-clicking
-		onselect();
+		if (flow.config.elements_selectable) onselect();
 
 		// Add listener to close menu when clicking outside
 		setTimeout(() => {
 			window.addEventListener('click', closeContextMenu);
 			window.addEventListener('contextmenu', closeContextMenu);
 		}, 0);
+	}
+
+	function handleReconnectMouseDown(e: MouseEvent, reconnect_type: 'source' | 'target') {
+		if (flow.locked) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (flow.config.elements_selectable) onselect();
+		flow.startEdgeReconnect(edge.id, reconnect_type);
 	}
 
 	function closeContextMenu() {
@@ -612,7 +663,10 @@
 	});
 </script>
 
-{#if combinedPath}
+{#if component && customEdgeProps}
+	{@const Component = component}
+	<Component {...customEdgeProps} />
+{:else if combinedPath}
 	<g
 		class="kaykay-edge"
 		class:selected
@@ -693,6 +747,27 @@
 				onmousedown={(e) => handleWaypointMouseDown(e, index)}
 			/>
 		{/each}
+	</g>
+{/if}
+
+{#if selected && source_position && target_position && !flow.locked}
+	<g class="kaykay-edge-reconnect-anchors">
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<circle
+			class="kaykay-edge-reconnect-anchor"
+			cx={source_position.x}
+			cy={source_position.y}
+			r="8"
+			onmousedown={(e) => handleReconnectMouseDown(e, 'source')}
+		/>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<circle
+			class="kaykay-edge-reconnect-anchor"
+			cx={target_position.x}
+			cy={target_position.y}
+			r="8"
+			onmousedown={(e) => handleReconnectMouseDown(e, 'target')}
+		/>
 	</g>
 {/if}
 
@@ -781,5 +856,19 @@
 
 	.kaykay-edge-arrow-head {
 		pointer-events: none;
+	}
+
+	.kaykay-edge-reconnect-anchor {
+		fill: var(--kaykay-edge-reconnect-anchor-fill, #fff);
+		stroke: var(--kaykay-edge-reconnect-anchor-stroke, #eb5425);
+		stroke-width: 2px;
+		cursor: crosshair;
+		pointer-events: auto;
+		opacity: 0.95;
+	}
+
+	.kaykay-edge-reconnect-anchor:hover {
+		fill: var(--kaykay-edge-reconnect-anchor-hover-fill, #fbbf24);
+		stroke: var(--kaykay-edge-reconnect-anchor-hover-stroke, #f59e0b);
 	}
 </style>

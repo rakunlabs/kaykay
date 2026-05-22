@@ -13,6 +13,15 @@ import type {
 	FlowChangeReason,
 	ConnectionValidationResult,
 } from '../types/index.js';
+import {
+	getVirtualWireInputHandleId,
+	getVirtualWireOutputChannelId,
+	getVirtualWirePairId,
+	flattenVirtualWireFlow,
+	hydrateVirtualWireFlow,
+	isVirtualWireInputNode,
+	isVirtualWireOutputNode,
+} from '../utils/virtual-wire.js';
 
 const FLOW_CONTEXT_KEY = Symbol.for('kaykay-flow');
 
@@ -95,6 +104,14 @@ export class FlowState {
 			allow_delete: true,
 			default_edge_type: 'bezier',
 			locked: false,
+			nodes_draggable: true,
+			nodes_connectable: true,
+			elements_selectable: true,
+			selection_on_drag: false,
+			pan_on_drag: true,
+			pan_on_scroll: true,
+			zoom_on_scroll: false,
+			nodes_focusable: true,
 			...config,
 		};
 		this.callbacks = callbacks;
@@ -124,6 +141,7 @@ export class FlowState {
 		return {
 			...edge,
 			waypoints: edge.waypoints?.map((waypoint) => ({ ...waypoint })),
+			data: edge.data === undefined ? undefined : cloneSerializable(edge.data),
 		};
 	}
 
@@ -175,6 +193,32 @@ export class FlowState {
 	private clearHandleState(): void {
 		this.handle_registry = {};
 		this.handle_positions = {};
+	}
+
+	private restoreHandlesForLoadedNodes(
+		previous_registry: Record<string, HandleState>,
+		previous_positions: Record<string, Position>
+	): void {
+		const nodes_by_id = new Map(this.nodes.map((node) => [node.id, node]));
+
+		for (const [key, handle] of Object.entries(previous_registry)) {
+			const suffix = `:${handle.id}`;
+			if (!key.endsWith(suffix)) continue;
+
+			const node_id = key.slice(0, -suffix.length);
+			const node = nodes_by_id.get(node_id);
+			if (!node) continue;
+
+			const absolute_position = previous_positions[key] ?? handle.absolute_position;
+			const restored_handle: HandleState = {
+				...handle,
+				accept: handle.accept ? [...handle.accept] : undefined,
+				absolute_position: { ...absolute_position },
+			};
+			node.handles.set(restored_handle.id, restored_handle);
+			this.handle_registry[key] = restored_handle;
+			this.handle_positions[key] = { ...restored_handle.absolute_position };
+		}
 	}
 
 	private clearNodeHandles(node_id: string): void {
@@ -559,6 +603,37 @@ export class FlowState {
 		}
 	}
 
+	reconnectEdge(
+		edge_id: string,
+		source_node_id: string,
+		source_handle_id: string,
+		target_node_id: string,
+		target_handle_id: string
+	): boolean {
+		if (this.locked || !this.config.nodes_connectable) return false;
+
+		const edge = this.edges.find((candidate) => candidate.id === edge_id);
+		if (!edge) return false;
+
+		const validation = this.getConnectionValidation(
+			source_node_id,
+			source_handle_id,
+			target_node_id,
+			target_handle_id,
+			edge_id
+		);
+		if (!validation.valid) return false;
+
+		this.pushSnapshot();
+		edge.source = source_node_id;
+		edge.source_handle = source_handle_id;
+		edge.target = target_node_id;
+		edge.target_handle = target_handle_id;
+		this.callbacks.on_edge_reconnect?.(edge);
+		this.notifyChange('edge:reconnect');
+		return true;
+	}
+
 	// ============ Edge Waypoints ============
 
 	addEdgeWaypoint(edge_id: string, position: Position, index?: number): void {
@@ -628,16 +703,18 @@ export class FlowState {
 		source_node_id: string,
 		source_handle_id: string,
 		target_node_id: string,
-		target_handle_id: string
+		target_handle_id: string,
+		ignore_edge_id?: string
 	): boolean {
-		return this.getConnectionValidation(source_node_id, source_handle_id, target_node_id, target_handle_id).valid;
+		return this.getConnectionValidation(source_node_id, source_handle_id, target_node_id, target_handle_id, ignore_edge_id).valid;
 	}
 
 	getConnectionValidation(
 		source_node_id: string,
 		source_handle_id: string,
 		target_node_id: string,
-		target_handle_id: string
+		target_handle_id: string,
+		ignore_edge_id?: string
 	): { valid: boolean; reason?: string } {
 		// Cannot connect to self
 		if (source_node_id === target_node_id) {
@@ -663,13 +740,19 @@ export class FlowState {
 			return { valid: false, reason: 'Connections must go from an output handle to an input handle' };
 		}
 
+		const source_port = this.getEffectiveSourcePort(source_node, source_handle_id, source_handle.port);
+		const effective_source_handle = source_port === source_handle.port
+			? source_handle
+			: { ...source_handle, port: source_port };
+
 		// Port type validation
-		if (!this.canConnectPorts(source_handle.port, target_handle.port, target_handle.accept)) {
-			return { valid: false, reason: `Port ${source_handle.port} is not accepted by ${target_handle.port}` };
+		if (!this.canConnectPorts(source_port, target_handle.port, target_handle.accept)) {
+			return { valid: false, reason: `Port ${source_port} is not accepted by ${target_handle.port}` };
 		}
 
 		const duplicate = this.edges.some(
 			(edge) =>
+				edge.id !== ignore_edge_id &&
 				edge.source === source_node_id &&
 				edge.source_handle === source_handle_id &&
 				edge.target === target_node_id &&
@@ -681,7 +764,7 @@ export class FlowState {
 
 		if (this.config.max_connections_per_input !== undefined) {
 			const input_count = this.edges.filter(
-				(edge) => edge.target === target_node_id && edge.target_handle === target_handle_id
+				(edge) => edge.id !== ignore_edge_id && edge.target === target_node_id && edge.target_handle === target_handle_id
 			).length;
 			if (input_count >= this.config.max_connections_per_input) {
 				return { valid: false, reason: 'Input connection limit reached' };
@@ -690,21 +773,21 @@ export class FlowState {
 
 		if (this.config.max_connections_per_output !== undefined) {
 			const output_count = this.edges.filter(
-				(edge) => edge.source === source_node_id && edge.source_handle === source_handle_id
+				(edge) => edge.id !== ignore_edge_id && edge.source === source_node_id && edge.source_handle === source_handle_id
 			).length;
 			if (output_count >= this.config.max_connections_per_output) {
 				return { valid: false, reason: 'Output connection limit reached' };
 			}
 		}
 
-		if (this.config.prevent_cycles && this.wouldCreateCycle(source_node_id, target_node_id)) {
+		if (this.config.prevent_cycles && this.wouldCreateCycle(source_node_id, target_node_id, ignore_edge_id)) {
 			return { valid: false, reason: 'Connection would create a cycle' };
 		}
 
 		const custom_result = this.config.is_valid_connection?.({
 			source_node,
 			target_node,
-			source_handle,
+			source_handle: effective_source_handle,
 			target_handle,
 			edges: this.edges,
 		});
@@ -719,7 +802,47 @@ export class FlowState {
 		return result;
 	}
 
-	private wouldCreateCycle(source_node_id: string, target_node_id: string): boolean {
+	private getEffectiveSourcePort(
+		source_node: NodeState,
+		source_handle_id: string,
+		fallback_port: string,
+		visited_handles = new Set<string>()
+	): string {
+		const visited_key = `${source_node.id}:${source_handle_id}`;
+		if (visited_handles.has(visited_key)) return fallback_port;
+		visited_handles.add(visited_key);
+
+		if (!isVirtualWireOutputNode(source_node)) return fallback_port;
+
+		const channel_id = getVirtualWireOutputChannelId(source_handle_id);
+		const pair_id = getVirtualWirePairId(source_node);
+		if (!channel_id || !pair_id) return fallback_port;
+
+		const input_handle_id = getVirtualWireInputHandleId(channel_id);
+		for (const input_node of this.nodes) {
+			if (!isVirtualWireInputNode(input_node) || getVirtualWirePairId(input_node) !== pair_id) continue;
+
+			const incoming_edge = this.edges.find(
+				(edge) => edge.target === input_node.id && edge.target_handle === input_handle_id
+			);
+			if (!incoming_edge) continue;
+
+			const upstream_node = this.getNode(incoming_edge.source);
+			const upstream_handle = this.getHandle(incoming_edge.source, incoming_edge.source_handle);
+			if (!upstream_node || !upstream_handle) continue;
+
+			return this.getEffectiveSourcePort(
+				upstream_node,
+				incoming_edge.source_handle,
+				upstream_handle.port,
+				visited_handles
+			);
+		}
+
+		return fallback_port;
+	}
+
+	private wouldCreateCycle(source_node_id: string, target_node_id: string, ignore_edge_id?: string): boolean {
 		const visited = new Set<string>();
 		const stack = [target_node_id];
 
@@ -730,6 +853,7 @@ export class FlowState {
 			visited.add(node_id);
 
 			for (const edge of this.edges) {
+				if (edge.id === ignore_edge_id) continue;
 				if (edge.source === node_id) stack.push(edge.target);
 			}
 		}
@@ -738,6 +862,8 @@ export class FlowState {
 	}
 
 	canConnectPorts(source_port: string, target_port: string, target_accept?: string[]): boolean {
+		if (source_port === '*' || target_port === '*' || target_accept?.includes('*')) return true;
+
 		// Exact match
 		if (source_port === target_port) return true;
 
@@ -1001,6 +1127,7 @@ export class FlowState {
 		source_handle_position: import('../types/index.js').HandlePosition,
 		source_position: Position
 	): void {
+		if (!this.config.nodes_connectable) return;
 		this.draft_connection = {
 			source_node_id,
 			source_handle_id,
@@ -1009,6 +1136,47 @@ export class FlowState {
 			source_position,
 			target_position: source_position,
 		};
+	}
+
+	startEdgeReconnect(edge_id: string, reconnect_type: 'source' | 'target'): boolean {
+		if (this.locked || !this.config.nodes_connectable) return false;
+
+		const edge = this.getEdge(edge_id);
+		if (!edge) return false;
+
+		const source_handle = this.getHandle(edge.source, edge.source_handle);
+		const target_handle = this.getHandle(edge.target, edge.target_handle);
+		const source_position = this.getHandlePosition(edge.source, edge.source_handle);
+		const target_position = this.getHandlePosition(edge.target, edge.target_handle);
+		if (!source_handle || !target_handle || !source_position || !target_position) return false;
+
+		if (reconnect_type === 'target') {
+			this.draft_connection = {
+				source_node_id: edge.source,
+				source_handle_id: edge.source_handle,
+				source_port: source_handle.port,
+				source_handle_position: source_handle.position,
+				source_position,
+				target_position,
+				reconnect_edge_id: edge_id,
+				reconnect_type,
+			};
+			return true;
+		}
+
+		this.draft_connection = {
+			source_node_id: edge.target,
+			source_handle_id: edge.target_handle,
+			source_port: target_handle.port,
+			source_handle_position: target_handle.position,
+			source_position: target_position,
+			target_position: source_position,
+			reconnect_edge_id: edge_id,
+			reconnect_type,
+			fixed_target_node_id: edge.target,
+			fixed_target_handle_id: edge.target_handle,
+		};
+		return true;
 	}
 
 	updateConnection(target_position: Position): void {
@@ -1020,13 +1188,34 @@ export class FlowState {
 	finishConnection(target_node_id: string, target_handle_id: string): boolean {
 		if (!this.draft_connection) return false;
 
-		const success = this.addEdge({
-			id: `e-${this.draft_connection.source_node_id}-${this.draft_connection.source_handle_id}-${target_node_id}-${target_handle_id}`,
-			source: this.draft_connection.source_node_id,
-			source_handle: this.draft_connection.source_handle_id,
-			target: target_node_id,
-			target_handle: target_handle_id,
-		});
+		let success = false;
+		if (this.draft_connection.reconnect_edge_id && this.draft_connection.reconnect_type === 'source') {
+			if (this.draft_connection.fixed_target_node_id && this.draft_connection.fixed_target_handle_id) {
+				success = this.reconnectEdge(
+					this.draft_connection.reconnect_edge_id,
+					target_node_id,
+					target_handle_id,
+					this.draft_connection.fixed_target_node_id,
+					this.draft_connection.fixed_target_handle_id
+				);
+			}
+		} else if (this.draft_connection.reconnect_edge_id) {
+			success = this.reconnectEdge(
+				this.draft_connection.reconnect_edge_id,
+				this.draft_connection.source_node_id,
+				this.draft_connection.source_handle_id,
+				target_node_id,
+				target_handle_id
+			);
+		} else {
+			success = this.addEdge({
+				id: `e-${this.draft_connection.source_node_id}-${this.draft_connection.source_handle_id}-${target_node_id}-${target_handle_id}`,
+				source: this.draft_connection.source_node_id,
+				source_handle: this.draft_connection.source_handle_id,
+				target: target_node_id,
+				target_handle: target_handle_id,
+			});
+		}
 
 		this.draft_connection = null;
 		return success;
@@ -1055,7 +1244,7 @@ export class FlowState {
 	// ============ Serialization ============
 
 	toJSON(): Flow {
-		return {
+		return flattenVirtualWireFlow({
 			nodes: this.nodes.map((node) => ({
 				id: node.id,
 				type: node.type,
@@ -1078,15 +1267,19 @@ export class FlowState {
 				style: edge.style,
 				animated: edge.animated,
 				color: edge.color,
+				data: edge.data === undefined ? undefined : cloneSerializable(edge.data),
 			})),
-		};
+		});
 	}
 
 	fromJSON(flow: Flow): void {
-		const normalized_flow = this.normalizeFlow(flow);
+		const previous_registry = this.handle_registry;
+		const previous_positions = this.handle_positions;
+		const normalized_flow = this.normalizeFlow(hydrateVirtualWireFlow(flow));
 		this.nodes = normalized_flow.nodes.map((node) => this.createNodeState(node));
 		this.edges = normalized_flow.edges;
 		this.clearHandleState();
+		this.restoreHandlesForLoadedNodes(previous_registry, previous_positions);
 		this.clearSelection();
 		// Re-initialize next_node_id based on loaded nodes
 		this.initializeNextNodeId();
@@ -1188,10 +1381,13 @@ export class FlowState {
 
 	// Restore state from a snapshot (without clearing history)
 	private restoreFromSnapshot(flow: Flow): void {
-		const normalized_flow = this.normalizeFlow(flow);
+		const previous_registry = this.handle_registry;
+		const previous_positions = this.handle_positions;
+		const normalized_flow = this.normalizeFlow(hydrateVirtualWireFlow(flow));
 		this.nodes = normalized_flow.nodes.map((node) => this.createNodeState(node));
 		this.edges = normalized_flow.edges;
 		this.clearHandleState();
+		this.restoreHandlesForLoadedNodes(previous_registry, previous_positions);
 		this.clearSelection();
 		this.initializeNextNodeId();
 	}
@@ -1363,6 +1559,7 @@ export class FlowState {
 				style: e.style,
 				animated: e.animated,
 				color: e.color,
+				data: e.data === undefined ? undefined : cloneSerializable(e.data),
 			}));
 
 		this.clipboard = { nodes: copied_nodes, edges: copied_edges };

@@ -64,8 +64,7 @@
 			<p>The main component that renders the flow diagram.</p>
 			<div class="code-block">
 				<pre>{`<Canvas
-  nodes={nodes}
-  edges={edges}
+  flow={savedFlow}
   nodeTypes={nodeTypes}
   callbacks={callbacks}
   config={config}
@@ -91,6 +90,11 @@
 					</tr>
 				</thead>
 				<tbody>
+					<tr>
+						<td><code>flow</code></td>
+						<td><code>Flow?</code></td>
+						<td>Full serialized flow. Prefer this when loading JSON returned by <code>flow.toJSON()</code>.</td>
+					</tr>
 					<tr>
 						<td><code>nodes</code></td>
 						<td><code>FlowNode[]</code></td>
@@ -287,6 +291,51 @@ const nodeTypes = {
 		</div>
 
 		<div class="component">
+			<h3>VirtualWireInputNode / VirtualWireOutputNode</h3>
+			<p>Built-in portal nodes for reducing long edge clutter. Connect into a numbered input channel, then connect out of the matching output channel elsewhere on the canvas. No long pair edge is drawn between the two nodes. Users can rename the shared pair label, add channels from the header, rename labels inline, and delete unused channels while stable IDs remain in kaykay editor metadata.</p>
+			<div class="code-block">
+				<pre>{`import {
+  VirtualWireInputNode,
+  VirtualWireOutputNode,
+  resolveVirtualWireEdges
+} from 'kaykay';
+
+const nodeTypes = {
+  'virtual-wire-input': VirtualWireInputNode,
+  'virtual-wire-output': VirtualWireOutputNode
+};
+
+const nodes = [
+  {
+    id: 'wire-in',
+    type: 'virtual-wire-input',
+    position: { x: 260, y: 120 },
+    data: {
+      pair_id: 'main-bus',
+      pair_label: 'Main Bus',
+      label: 'Main Bus In',
+      channels: [{ id: '1', label: '1' }]
+    }
+  },
+  {
+    id: 'wire-out',
+    type: 'virtual-wire-output',
+    position: { x: 720, y: 120 },
+    data: {
+      pair_id: 'main-bus',
+      pair_label: 'Main Bus',
+      label: 'Main Bus Out',
+      channels: [{ id: '1', label: '1' }]
+    }
+  }
+];
+
+// For execution/dataflow, collapse portal segments into logical direct edges.
+const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
+			</div>
+		</div>
+
+		<div class="component">
 			<h3>Minimap</h3>
 			<p>Optional minimap for navigation. Click, drag, touch, or keyboard arrows to pan viewport.</p>
 			<div class="code-block">
@@ -416,18 +465,38 @@ const nodeTypes = {
 		<div class="type-def">
 			<h3>FlowEdge</h3>
 			<div class="code-block">
-				<pre>{`interface FlowEdge {
+				<pre>{`interface FlowEdge<T = Record<string, unknown>> {
   id: string;
   source: string;
   source_handle: string;
   target: string;
   target_handle: string;
-  type?: 'bezier' | 'straight' | 'step';
+  type?: 'bezier' | 'straight' | 'step' | string;
   style?: 'solid' | 'dashed' | 'dotted';
   color?: string;
   animated?: boolean;
   label?: string;
   waypoints?: Position[];
+  data?: T;
+}`}</pre>
+			</div>
+		</div>
+
+		<div class="type-def">
+			<h3>VirtualWireNodeData</h3>
+			<div class="code-block">
+				<pre>{`interface VirtualWireNodeData {
+  pair_id: string;
+  pair_label?: string;
+  label?: string;
+  color?: string;
+  channels?: VirtualWireChannel[];
+}
+
+interface VirtualWireChannel {
+  id: string;      // "1", "2", "3", ...
+  label?: string;
+  port?: string;
 }`}</pre>
 			</div>
 		</div>
@@ -480,6 +549,233 @@ const nodeTypes = {
   prevent_cycles?: boolean;
   is_valid_connection?: (context: ConnectionValidationContext) => ConnectionValidationResult;
 }`}</pre>
+			</div>
+		</div>
+	</section>
+
+	<section class="api-section">
+		<h2>JSON Flow Model</h2>
+		<p>The import/export format is plain JSON. Use it to persist a diagram, send it to an API, or power an editor like the Playground live JSON panel.</p>
+
+		<div class="type-def">
+			<h3>Flow</h3>
+			<p><code>Flow</code> is the complete serialized diagram returned by <code>flow.toJSON()</code> and accepted by <code>flow.fromJSON()</code>.</p>
+			<div class="code-block">
+				<pre>{`interface Flow {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+const json = canvasRef.getFlow().toJSON();
+canvasRef.getFlow().fromJSON(json);`}</pre>
+			</div>
+		</div>
+
+		<div class="type-def">
+			<h3>Example JSON</h3>
+			<div class="code-block">
+				<pre>{`{
+  "nodes": [
+    {
+      "id": "source",
+      "type": "input",
+      "position": { "x": 80, "y": 120 },
+      "data": { "label": "Source" }
+    },
+    {
+      "id": "group-a",
+      "type": "group",
+      "position": { "x": 40, "y": 60 },
+      "width": 320,
+      "height": 220,
+      "data": { "label": "Processing" }
+    },
+    {
+      "id": "transform",
+      "type": "process",
+      "position": { "x": 40, "y": 70 },
+      "parent_id": "group-a",
+      "data": { "operation": "Transform" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "source-transform",
+      "source": "source",
+      "source_handle": "out",
+      "target": "transform",
+      "target_handle": "in",
+      "type": "bezier",
+      "label": "raw data",
+      "style": "dashed",
+      "animated": true,
+      "color": "#eb5425",
+      "waypoints": [{ "x": 220, "y": 150 }],
+      "data": { "schema": "raw-event" }
+    }
+  ]
+}`}</pre>
+			</div>
+		</div>
+
+		<div class="type-def">
+			<h3>Node JSON</h3>
+			<table class="props-table">
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>id</code></td>
+						<td><code>string</code></td>
+						<td>Stable node identifier. Edges reference this value.</td>
+					</tr>
+					<tr>
+						<td><code>type</code></td>
+						<td><code>string</code></td>
+						<td>Looks up the renderer in <code>nodeTypes</code>, for example <code>process</code> or <code>group</code>.</td>
+					</tr>
+					<tr>
+						<td><code>position</code></td>
+						<td><code>Position</code></td>
+						<td>Canvas coordinates. If <code>parent_id</code> is set, the position is relative to that parent group.</td>
+					</tr>
+					<tr>
+						<td><code>data</code></td>
+						<td><code>Record&lt;string, unknown&gt;</code></td>
+						<td>Custom serializable payload passed to the node component as <code>data</code>.</td>
+					</tr>
+					<tr>
+						<td><code>width</code> / <code>height</code></td>
+						<td><code>number?</code></td>
+						<td>Optional fixed dimensions. Useful for groups, sticky notes, and resizable nodes.</td>
+					</tr>
+					<tr>
+						<td><code>parent_id</code></td>
+						<td><code>string?</code></td>
+						<td>Places a node inside a group node. Invalid or cyclic parent references are removed during load.</td>
+					</tr>
+					<tr>
+						<td><code>z_index</code></td>
+						<td><code>number?</code></td>
+						<td>Optional drawing order override.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="type-def">
+			<h3>Edge JSON</h3>
+			<table class="props-table">
+				<thead>
+					<tr>
+						<th>Field</th>
+						<th>Type</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>source</code> / <code>target</code></td>
+						<td><code>string</code></td>
+						<td>Node IDs connected by the edge. Edges with missing nodes are ignored during load.</td>
+					</tr>
+					<tr>
+						<td><code>source_handle</code> / <code>target_handle</code></td>
+						<td><code>string</code></td>
+						<td>Handle IDs on the source and target nodes.</td>
+					</tr>
+					<tr>
+						<td><code>type</code></td>
+						<td><code>EdgeType?</code></td>
+						<td>Built-in path type or a custom key registered in <code>edgeTypes</code>.</td>
+					</tr>
+					<tr>
+						<td><code>label</code></td>
+						<td><code>string?</code></td>
+						<td>Optional rendered label.</td>
+					</tr>
+					<tr>
+						<td><code>style</code> / <code>animated</code> / <code>color</code></td>
+						<td><code>EdgeStyle?</code> / <code>boolean?</code> / <code>string?</code></td>
+						<td>Visual styling for built-in edge rendering.</td>
+					</tr>
+					<tr>
+						<td><code>waypoints</code></td>
+						<td><code>Position[]?</code></td>
+						<td>Intermediate routing points for manually shaped edges.</td>
+					</tr>
+					<tr>
+						<td><code>data</code></td>
+						<td><code>Record&lt;string, unknown&gt;?</code></td>
+						<td>Custom serializable payload passed to custom edge components.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="type-def">
+			<h3>Handles and Ports</h3>
+			<p>Handles are declared by node components, not stored on each node JSON object. Edges store the selected handle IDs, while <code>port</code> and <code>accept</code> on <code>&lt;Handle&gt;</code> control whether a new connection is valid.</p>
+			<div class="code-block">
+				<pre>{`<Handle id="out" type="output" port="text" position="right" />
+<Handle id="in" type="input" port="processed" accept={["text"]} position="left" />
+
+{
+  "source": "source",
+  "source_handle": "out",
+  "target": "transform",
+  "target_handle": "in"
+}`}</pre>
+			</div>
+		</div>
+
+		<div class="type-def">
+			<h3>Viewport JSON</h3>
+			<p><code>Viewport</code> is runtime pan/zoom state. It is available through viewport APIs, but it is not included in <code>Flow</code> serialization.</p>
+			<div class="code-block">
+				<pre>{`interface Viewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+const viewport = canvasRef.getViewport();
+canvasRef.getFlow().setViewport(viewport);`}</pre>
+			</div>
+		</div>
+
+		<div class="method-group">
+			<h3>Import and Export Notes</h3>
+			<ul class="feature-list">
+				<li><code>toJSON()</code> returns cloned node and edge data so callers can safely stringify or store it.</li>
+				<li><code>fromJSON()</code> normalizes invalid nodes, duplicate IDs, dangling edges, and cyclic group parents before loading.</li>
+				<li>Only serializable values should be stored in <code>node.data</code> and <code>edge.data</code>.</li>
+				<li>Custom node and edge type names must still be registered in <code>nodeTypes</code> and <code>edgeTypes</code> when the JSON is loaded.</li>
+			</ul>
+		</div>
+
+		<div class="method-group">
+			<h3>Virtual Wire Resolution</h3>
+			<p><code>flow.toJSON()</code> stores virtual wires as backend-compatible direct edges in <code>nodes</code>/<code>edges</code>. New kaykay UIs restore the portal nodes from <code>kaykay.virtual_wires</code> metadata during <code>fromJSON()</code>; older engines can ignore that key.</p>
+			<ul class="feature-list">
+				<li>Use the <code>flow</code> prop for initial load or <code>flow.fromJSON(json)</code> after mount to restore the portal UI from the full <code>Flow</code>.</li>
+				<li>Passing only <code>json.nodes</code> and <code>json.edges</code> to <code>&lt;Canvas&gt;</code> intentionally renders the backend-compatible direct-edge fallback because top-level metadata is unavailable.</li>
+				<li>During <code>fromJSON()</code>, current direct edges are the source of truth. If an older tool deletes or retargets a flattened direct edge, kaykay mirrors that change instead of restoring stale portal connections.</li>
+				<li>Resolved direct edges store kaykay details at <code>edge.data.kaykay_virtual_wire</code>; engines that do not need editor details can ignore unknown <code>edge.data</code> keys.</li>
+			</ul>
+			<div class="code-block">
+				<pre>{`const serialized = flow.toJSON();
+// serialized.nodes has no virtual-wire nodes.
+// serialized.edges has source -> target direct edges.
+// serialized.kaykay.virtual_wires lets kaykay restore the editor portal view.
+
+// source -> virtual input 1 + virtual output 1 -> target
+// is saved as source -> target for dataflow/execution.`}</pre>
 			</div>
 		</div>
 	</section>
@@ -733,13 +1029,26 @@ flow.fromJSON(json: Flow): void`}</pre>
 	}
 
 	.component > p,
+	.type-def > p,
 	.api-section > p {
 		margin: 0 0 16px 0;
 		color: #aaa;
 	}
 
 	:global(.kaykay-light) .component > p,
+	:global(.kaykay-light) .type-def > p,
 	:global(.kaykay-light) .api-section > p {
+		color: #666;
+	}
+
+	.feature-list {
+		margin: 0;
+		padding-left: 20px;
+		color: #aaa;
+		line-height: 1.7;
+	}
+
+	:global(.kaykay-light) .feature-list {
 		color: #666;
 	}
 
@@ -750,11 +1059,50 @@ flow.fromJSON(json: Flow): void`}</pre>
 		padding: 16px;
 		margin-bottom: 16px;
 		overflow-x: auto;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(120, 120, 120, 0.46) rgba(255, 255, 255, 0.03);
+	}
+
+	.code-block::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
+	}
+
+	.code-block::-webkit-scrollbar-track {
+		background: rgba(255, 255, 255, 0.03);
+		border-radius: 999px;
+	}
+
+	.code-block::-webkit-scrollbar-thumb {
+		background: rgba(120, 120, 120, 0.46);
+		border: 1px solid transparent;
+		border-radius: 999px;
+		background-clip: padding-box;
+	}
+
+	.code-block::-webkit-scrollbar-thumb:hover {
+		background: rgba(150, 150, 150, 0.68);
+		background-clip: padding-box;
 	}
 
 	:global(.kaykay-light) .code-block {
 		background: #1f1f1f;
 		border-color: #e0e0e0;
+		scrollbar-color: rgba(82, 82, 82, 0.46) rgba(255, 255, 255, 0.06);
+	}
+
+	:global(.kaykay-light) .code-block::-webkit-scrollbar-track {
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	:global(.kaykay-light) .code-block::-webkit-scrollbar-thumb {
+		background: rgba(82, 82, 82, 0.46);
+		background-clip: padding-box;
+	}
+
+	:global(.kaykay-light) .code-block::-webkit-scrollbar-thumb:hover {
+		background: rgba(82, 82, 82, 0.68);
+		background-clip: padding-box;
 	}
 
 	.code-block pre {

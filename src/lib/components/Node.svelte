@@ -53,12 +53,12 @@
 		// If this node is already selected and we're not holding shift,
 		// don't change the selection (allows dragging multiple nodes)
 		const isAlreadySelected = flow.selected_node_ids.has(node.id);
-		if (!isAlreadySelected) {
+		if (!isAlreadySelected && flow.config.elements_selectable) {
 			flow.selectNode(node.id, e.shiftKey || e.ctrlKey || e.metaKey);
 		}
 
 		// Don't allow dragging when locked
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_draggable) return;
 
 		isDragging = true;
 		hasMoved = false;
@@ -224,12 +224,12 @@
 		
 		// If this node is already selected, don't change the selection (allows dragging multiple nodes)
 		const isAlreadySelected = flow.selected_node_ids.has(node.id);
-		if (!isAlreadySelected) {
+		if (!isAlreadySelected && flow.config.elements_selectable) {
 			flow.selectNode(node.id, false);
 		}
 
 		// Don't allow dragging when locked
-		if (flow.locked) return;
+		if (flow.locked || !flow.config.nodes_draggable) return;
 
 		isDragging = true;
 		hasMoved = false;
@@ -350,6 +350,15 @@
 		window.removeEventListener('touchcancel', handleTouchCancel);
 	}
 
+	function handleKeyDown(e: KeyboardEvent) {
+		if (!flow.config.elements_selectable) return;
+		if (e.key !== 'Enter' && e.key !== ' ') return;
+
+		e.preventDefault();
+		e.stopPropagation();
+		flow.selectNode(node.id, e.shiftKey || e.ctrlKey || e.metaKey);
+	}
+
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('mousemove', handleMouseMove);
@@ -367,6 +376,7 @@
 
 	const isLocked = $derived(flow.locked);
 	const isGroup = $derived(node.type === 'group');
+	const isFocusable = $derived(flow.config.nodes_focusable !== false);
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -385,7 +395,10 @@
 	style:height={node.height ? `${node.height}px` : undefined}
 	onmousedown={handleMouseDown}
 	ontouchstart={handleTouchStart}
-	role="group"
+	onkeydown={handleKeyDown}
+	role="button"
+	tabindex={isFocusable ? 0 : undefined}
+	aria-pressed={selected}
 	data-node-id={node.id}
 	data-node-status={status ?? 'idle'}
 >

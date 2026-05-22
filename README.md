@@ -2,9 +2,9 @@
 
 # kaykay
 
-[![npm version](https://img.shields.io/npm/v/kaykay?style=flat&color=eb5425)](https://www.npmjs.com/package/kaykay)
-[![npm downloads](https://img.shields.io/npm/dm/kaykay?style=flat&color=4a9eff)](https://www.npmjs.com/package/kaykay)
-[![license](https://img.shields.io/npm/l/kaykay?style=flat&color=22c55e)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/kaykay?style=flat-square&color=eb5425)](https://www.npmjs.com/package/kaykay)
+[![npm downloads](https://img.shields.io/npm/dm/kaykay?style=flat-square&color=4a9eff)](https://www.npmjs.com/package/kaykay)
+[![license](https://img.shields.io/npm/l/kaykay?style=flat-square&color=22c55e)](LICENSE)
 
 A Svelte 5 flow/node editor library with typed port connections.
 
