@@ -136,7 +136,7 @@ Group nodes use the following data properties:
 
 Use `VirtualWireInputNode` and `VirtualWireOutputNode` to make a long or crowded connection behave like a portal. The canvas shows only local edges into and out of the portal nodes; it does not draw a long cable between the pair.
 
-Both nodes share the same `pair_id`. Channel `1` on the input maps to channel `1` on the output, channel `2` maps to channel `2`, and so on. Users can edit the shared pair display name, add channels from the header `+`, rename channel labels inline, and delete unused channels. Pair and channel IDs stay stable in kaykay editor metadata while labels are user-editable.
+Portal nodes share the same `pair_id`. Channel `1` on the input maps to channel `1` on every matching output portal, channel `2` maps to channel `2`, and so on. You can place multiple `VirtualWireOutputNode` instances with the same `pair_id` to fan one input channel out to multiple distant targets. Users can edit the shared pair display name, add channels from the header `+`, rename channel labels inline, and delete unused channels. Pair and channel IDs stay stable in kaykay editor metadata while labels are user-editable.
 
 ```svelte
 <script lang="ts">
@@ -157,17 +157,25 @@ Both nodes share the same `pair_id`. Channel `1` on the input maps to channel `1
       data: { pair_id: 'bus-a', pair_label: 'Bus A', label: 'Bus In', channels: [{ id: '1', label: '1' }] }
     },
     {
-      id: 'wire-out',
+      id: 'wire-out-a',
       type: 'virtual-wire-output',
       position: { x: 720, y: 120 },
       data: { pair_id: 'bus-a', pair_label: 'Bus A', label: 'Bus Out', channels: [{ id: '1', label: '1' }] }
     },
-    { id: 'target', type: 'custom', position: { x: 940, y: 120 }, data: { label: 'Target' } }
+    {
+      id: 'wire-out-b',
+      type: 'virtual-wire-output',
+      position: { x: 720, y: 240 },
+      data: { pair_id: 'bus-a', pair_label: 'Bus A', label: 'Bus Out Mirror', channels: [{ id: '1', label: '1' }] }
+    },
+    { id: 'target-a', type: 'custom', position: { x: 940, y: 120 }, data: { label: 'Target A' } },
+    { id: 'target-b', type: 'custom', position: { x: 940, y: 240 }, data: { label: 'Target B' } }
   ]);
 
   let edges: FlowEdge[] = $state([
     { id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
-    { id: 'wire-target', source: 'wire-out', source_handle: 'out-1', target: 'target', target_handle: 'in' }
+    { id: 'wire-target-a', source: 'wire-out-a', source_handle: 'out-1', target: 'target-a', target_handle: 'in' },
+    { id: 'wire-target-b', source: 'wire-out-b', source_handle: 'out-1', target: 'target-b', target_handle: 'in' }
   ]);
 
   const nodeTypes: NodeTypes = {
@@ -178,7 +186,7 @@ Both nodes share the same `pair_id`. Channel `1` on the input maps to channel `1
 
   $effect(() => {
     const logicalEdges = resolveVirtualWireEdges(nodes, edges);
-    // logicalEdges contains source -> target instead of the two physical portal segments.
+    // logicalEdges contains source -> target-a and source -> target-b.
   });
 </script>
 
@@ -195,7 +203,7 @@ Compatibility notes:
 
 Virtual wire data properties:
 
-- `pair_id` - Shared ID linking the input and output portal nodes
+- `pair_id` - Shared ID linking input and output portal nodes; multiple outputs with the same ID create fan-out
 - `pair_label` - Optional shared display name shown in the header; does not affect pairing
 - `channels` - Numbered channel definitions, e.g. `{ id: '1', label: '1' }`
 - `label` - Optional title shown in the node

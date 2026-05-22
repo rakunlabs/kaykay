@@ -292,7 +292,7 @@ const nodeTypes = {
 
 		<div class="component">
 			<h3>VirtualWireInputNode / VirtualWireOutputNode</h3>
-			<p>Built-in portal nodes for reducing long edge clutter. Connect into a numbered input channel, then connect out of the matching output channel elsewhere on the canvas. No long pair edge is drawn between the two nodes. Users can rename the shared pair label, add channels from the header, rename labels inline, and delete unused channels while stable IDs remain in kaykay editor metadata.</p>
+			<p>Built-in portal nodes for reducing long edge clutter. Connect into a numbered input channel, then connect out of the matching output channel elsewhere on the canvas. Multiple output portals can share the same pair ID to fan one channel out to multiple targets. No long pair edge is drawn between the portal nodes. Users can rename the shared pair label, add channels from the header, rename labels inline, and delete unused channels while stable IDs remain in kaykay editor metadata.</p>
 			<div class="code-block">
 				<pre>{`import {
   VirtualWireInputNode,
@@ -318,13 +318,24 @@ const nodes = [
     }
   },
   {
-    id: 'wire-out',
+    id: 'wire-out-a',
     type: 'virtual-wire-output',
     position: { x: 720, y: 120 },
     data: {
       pair_id: 'main-bus',
       pair_label: 'Main Bus',
       label: 'Main Bus Out',
+      channels: [{ id: '1', label: '1' }]
+    }
+  },
+  {
+    id: 'wire-out-b',
+    type: 'virtual-wire-output',
+    position: { x: 720, y: 240 },
+    data: {
+      pair_id: 'main-bus',
+      pair_label: 'Main Bus',
+      label: 'Main Bus Mirror Out',
       channels: [{ id: '1', label: '1' }]
     }
   }
@@ -764,6 +775,7 @@ canvasRef.getFlow().setViewport(viewport);`}</pre>
 			<p><code>flow.toJSON()</code> stores virtual wires as backend-compatible direct edges in <code>nodes</code>/<code>edges</code>. New kaykay UIs restore the portal nodes from <code>kaykay.virtual_wires</code> metadata during <code>fromJSON()</code>; older engines can ignore that key.</p>
 			<ul class="feature-list">
 				<li>Use the <code>flow</code> prop for initial load or <code>flow.fromJSON(json)</code> after mount to restore the portal UI from the full <code>Flow</code>.</li>
+				<li>Multiple <code>VirtualWireOutputNode</code> instances with the same <code>pair_id</code> create fan-out: one input channel serializes to one direct edge per output target.</li>
 				<li>Passing only <code>json.nodes</code> and <code>json.edges</code> to <code>&lt;Canvas&gt;</code> intentionally renders the backend-compatible direct-edge fallback because top-level metadata is unavailable.</li>
 				<li>During <code>fromJSON()</code>, current direct edges are the source of truth. If an older tool deletes or retargets a flattened direct edge, kaykay mirrors that change instead of restoring stale portal connections.</li>
 				<li>Resolved direct edges store kaykay details at <code>edge.data.kaykay_virtual_wire</code>; engines that do not need editor details can ignore unknown <code>edge.data</code> keys.</li>

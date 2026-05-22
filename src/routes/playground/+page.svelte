@@ -98,13 +98,25 @@
 				channels: [{ id: '1', label: '1' }, { id: '2', label: '2' }]
 			}
 		},
+		{
+			id: 'wire-out-main-mirror',
+			type: 'virtual-wire-output',
+			position: { x: 630, y: 360 },
+			data: {
+				pair_id: 'main-bus',
+				pair_label: 'Main Bus',
+				label: 'Main Bus Mirror Out',
+				color: '#38bdf8',
+				channels: [{ id: '1', label: '1' }, { id: '2', label: '2' }]
+			}
+		},
 		// Output group
 		{
 			id: 'group-2',
 			type: 'group',
 			position: { x: 840, y: 100 },
 			width: 280,
-			height: 280,
+			height: 380,
 			data: { label: 'Outputs', color: '#8b5cf6' }
 		},
 		{
@@ -119,6 +131,13 @@
 			type: 'output',
 			position: { x: 30, y: 150 },
 			data: { title: 'Result B' },
+			parent_id: 'group-2'
+		},
+		{
+			id: 'node-9',
+			type: 'output',
+			position: { x: 30, y: 250 },
+			data: { title: 'Result A Mirror' },
 			parent_id: 'group-2'
 		},
 		// Sticky notes (no handles)
@@ -186,7 +205,7 @@
 			target_handle: 'in-2',
 			type: 'bezier'
 		},
-		// Aggregator to virtual wire channel 1, then portal output to Result A
+		// Aggregator to virtual wire channel 1, then two portal outputs fan out to Result A and its mirror
 		{
 			id: 'edge-7',
 			source: 'node-6',
@@ -200,6 +219,16 @@
 			source: 'wire-out-main',
 			source_handle: 'out-1',
 			target: 'node-7',
+			target_handle: 'in',
+			type: 'bezier',
+			style: 'dashed',
+			color: '#38bdf8'
+		},
+		{
+			id: 'edge-7-portal-mirror',
+			source: 'wire-out-main-mirror',
+			source_handle: 'out-1',
+			target: 'node-9',
 			target_handle: 'in',
 			type: 'bezier',
 			style: 'dashed',
@@ -555,7 +584,7 @@
 			Groups: Drag nodes into/out of groups |
 			Selection: Ctrl+drag to select multiple, Ctrl+A to select all |
 			Copy/Paste: Ctrl+C/V (works across browser tabs!) |
-			Virtual Wire: connect into channel 1, exit from channel 1 without a long pair cable
+			Virtual Wire: connect into channel 1, exit from one or more channel 1 portals without a long pair cable
 		</p>
 	</div>
 	

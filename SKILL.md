@@ -250,7 +250,7 @@ const callbacks = {
 
 ## Virtual Wires
 
-Virtual wires are portal nodes that reduce long edge clutter. A `virtual-wire-input` and a `virtual-wire-output` with the same `pair_id` behave like a hidden cable. Channel `1` maps to channel `1`, channel `2` maps to channel `2`, and so on.
+Virtual wires are portal nodes that reduce long edge clutter. A `virtual-wire-input` and any `virtual-wire-output` nodes with the same `pair_id` behave like hidden cables. Channel `1` maps to channel `1`, channel `2` maps to channel `2`, and so on. Multiple output portals with the same `pair_id` fan the same input channel out to multiple targets.
 
 ```svelte
 <script lang="ts">
@@ -271,17 +271,25 @@ Virtual wires are portal nodes that reduce long edge clutter. A `virtual-wire-in
       data: { pair_id: 'bus-a', pair_label: 'Bus A', channels: [{ id: '1', label: '1' }] }
     },
     {
-      id: 'wire-out',
+      id: 'wire-out-a',
       type: 'virtual-wire-output',
       position: { x: 620, y: 120 },
       data: { pair_id: 'bus-a', pair_label: 'Bus A', channels: [{ id: '1', label: '1' }] }
     },
-    { id: 'target', type: 'custom', position: { x: 880, y: 120 }, data: { label: 'Target' } }
+    {
+      id: 'wire-out-b',
+      type: 'virtual-wire-output',
+      position: { x: 620, y: 240 },
+      data: { pair_id: 'bus-a', pair_label: 'Bus A', channels: [{ id: '1', label: '1' }] }
+    },
+    { id: 'target-a', type: 'custom', position: { x: 880, y: 120 }, data: { label: 'Target A' } },
+    { id: 'target-b', type: 'custom', position: { x: 880, y: 240 }, data: { label: 'Target B' } }
   ];
 
   const edges: FlowEdge[] = [
     { id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
-    { id: 'wire-target', source: 'wire-out', source_handle: 'out-1', target: 'target', target_handle: 'in' }
+    { id: 'wire-target-a', source: 'wire-out-a', source_handle: 'out-1', target: 'target-a', target_handle: 'in' },
+    { id: 'wire-target-b', source: 'wire-out-b', source_handle: 'out-1', target: 'target-b', target_handle: 'in' }
   ];
 
   const nodeTypes: NodeTypes = {

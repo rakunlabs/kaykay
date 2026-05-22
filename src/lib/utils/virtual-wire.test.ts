@@ -102,6 +102,40 @@ describe('virtual wire graph utilities', () => {
 		expect(by_target.get('target-2')?.source).toBe('source-2');
 	});
 
+	it('fans one virtual wire input channel out through multiple output portals', () => {
+		const nodes: FlowNode[] = [
+			node('source'),
+			node('target-a'),
+			node('target-b'),
+			{
+				...node('wire-in', VIRTUAL_WIRE_INPUT_TYPE),
+				data: { pair_id: 'wire-a', channels: [{ id: '1' }] },
+			},
+			{
+				...node('wire-out-a', VIRTUAL_WIRE_OUTPUT_TYPE),
+				data: { pair_id: 'wire-a', channels: [{ id: '1' }] },
+			},
+			{
+				...node('wire-out-b', VIRTUAL_WIRE_OUTPUT_TYPE),
+				data: { pair_id: 'wire-a', channels: [{ id: '1' }] },
+			},
+		];
+		const edges: FlowEdge[] = [
+			{ id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
+			{ id: 'wire-target-a', source: 'wire-out-a', source_handle: 'out-1', target: 'target-a', target_handle: 'in' },
+			{ id: 'wire-target-b', source: 'wire-out-b', source_handle: 'out-1', target: 'target-b', target_handle: 'in' },
+		];
+
+		const resolved_edges = resolveVirtualWireEdges(nodes, edges);
+		const by_target = new Map(resolved_edges.map((edge) => [edge.target, edge]));
+
+		expect(resolved_edges).toHaveLength(2);
+		expect(by_target.get('target-a')).toMatchObject({ source: 'source', source_handle: 'out' });
+		expect(by_target.get('target-b')).toMatchObject({ source: 'source', source_handle: 'out' });
+		expect(by_target.get('target-a')?.data?.kaykay_virtual_wire).toMatchObject({ output_node_id: 'wire-out-a' });
+		expect(by_target.get('target-b')?.data?.kaykay_virtual_wire).toMatchObject({ output_node_id: 'wire-out-b' });
+	});
+
 	it('serializes virtual wires as direct edges with editor metadata', () => {
 		const flow: Flow = {
 			nodes: [
@@ -145,6 +179,52 @@ describe('virtual wire graph utilities', () => {
 		expect(flattened.kaykay?.virtual_wires?.edges.map((virtual_edge) => virtual_edge.id)).toEqual([
 			'source-wire',
 			'wire-target',
+		]);
+	});
+
+	it('serializes and hydrates multiple output portals for one input channel', () => {
+		const compatible_flow = flattenVirtualWireFlow({
+			nodes: [
+				node('source'),
+				{
+					...node('wire-in', VIRTUAL_WIRE_INPUT_TYPE),
+					data: { pair_id: 'wire-a', pair_label: 'Wire A', channels: [{ id: '1' }] },
+				},
+				{
+					...node('wire-out-a', VIRTUAL_WIRE_OUTPUT_TYPE),
+					data: { pair_id: 'wire-a', pair_label: 'Wire A', channels: [{ id: '1' }] },
+				},
+				{
+					...node('wire-out-b', VIRTUAL_WIRE_OUTPUT_TYPE),
+					data: { pair_id: 'wire-a', pair_label: 'Wire A', channels: [{ id: '1' }] },
+				},
+				node('target-a'),
+				node('target-b'),
+			],
+			edges: [
+				{ id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
+				{ id: 'wire-target-a', source: 'wire-out-a', source_handle: 'out-1', target: 'target-a', target_handle: 'in' },
+				{ id: 'wire-target-b', source: 'wire-out-b', source_handle: 'out-1', target: 'target-b', target_handle: 'in' },
+			],
+		});
+
+		expect(compatible_flow.nodes.map((flat_node) => flat_node.id)).toEqual(['source', 'target-a', 'target-b']);
+		expect(compatible_flow.edges.map((flat_edge) => flat_edge.target).sort()).toEqual(['target-a', 'target-b']);
+
+		const hydrated = hydrateVirtualWireFlow(compatible_flow);
+
+		expect(hydrated.nodes.map((hydrated_node) => hydrated_node.id)).toEqual([
+			'source',
+			'target-a',
+			'target-b',
+			'wire-in',
+			'wire-out-a',
+			'wire-out-b',
+		]);
+		expect(hydrated.edges.map((hydrated_edge) => hydrated_edge.id)).toEqual([
+			'source-wire',
+			'wire-target-a',
+			'wire-target-b',
 		]);
 	});
 
