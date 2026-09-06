@@ -24,6 +24,7 @@
 
 <style>
 	.example-toolbar {
+		--toolbar-accent: var(--site-accent, #806000);
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
@@ -34,13 +35,14 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 34px;
+		box-sizing: border-box;
+		min-height: 40px;
 		padding: 0 12px;
-		background: #eb5425;
-		border: 1px solid #eb5425;
+		background: var(--site-accent-fill);
+		border: 1px solid var(--site-accent-fill);
 		border-radius: 6px;
-		color: #fff;
-		font-family: inherit;
+		color: var(--site-accent-ink);
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		font-size: 0.82rem;
 		font-weight: 700;
 		text-decoration: none;
@@ -49,21 +51,31 @@
 	}
 
 	.toolbar-button:hover {
-		background: #2d7fd3;
-		border-color: #2d7fd3;
+		background: var(--site-accent-hover);
+		border-color: var(--site-accent-hover);
 	}
 
 	.toolbar-button.secondary {
 		background: transparent;
-		color: #eb5425;
+		color: var(--toolbar-accent);
+		border-color: var(--toolbar-accent);
 	}
 
 	.toolbar-button.secondary:hover {
-		background: rgba(235, 84, 37, 0.12);
-		border-color: #eb5425;
+		background: var(--site-accent-soft);
+		border-color: var(--toolbar-accent);
 	}
 
 	:global(.kaykay-light) .toolbar-button.secondary:hover {
-		background: #fff0eb;
+		background: var(--site-accent-soft);
+	}
+
+	:global(.kaykay-dark) .example-toolbar {
+		--toolbar-accent: var(--site-accent, #FFDC58);
+	}
+
+	.toolbar-button:focus-visible {
+		outline: 2px solid var(--toolbar-accent);
+		outline-offset: 3px;
 	}
 </style>

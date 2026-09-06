@@ -81,6 +81,8 @@
   {/snippet}
 </Canvas>`}</pre>
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Canvas props">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -147,6 +149,7 @@
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="component">
@@ -178,6 +181,8 @@ function handleDrop(event: DragEvent) {
   <Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} />
 </div>`}</pre>
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Canvas instance methods">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -209,6 +214,7 @@ function handleDrop(event: DragEvent) {
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="component">
@@ -223,6 +229,8 @@ function handleDrop(event: DragEvent) {
   label="Input"
 />`}</pre>
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Handle props">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -264,6 +272,7 @@ function handleDrop(event: DragEvent) {
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="component">
@@ -356,6 +365,8 @@ const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
   {/snippet}
 </Canvas>`}</pre>
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Minimap props">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -402,6 +413,7 @@ const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="component">
@@ -414,6 +426,8 @@ const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
   {/snippet}
 </Canvas>`}</pre>
 			</div>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Controls props">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -450,6 +464,7 @@ const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 	</section>
 
@@ -658,6 +673,8 @@ canvasRef.getFlow().fromJSON(json);`}</pre>
 
 		<div class="type-def">
 			<h3>Node JSON</h3>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Node JSON fields">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -704,10 +721,13 @@ canvasRef.getFlow().fromJSON(json);`}</pre>
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="type-def">
 			<h3>Edge JSON</h3>
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -- Keyboard users must be able to scroll wide tables. -->
+			<div class="table-scroll" role="region" tabindex="0" aria-label="Edge JSON fields">
 			<table class="props-table">
 				<thead>
 					<tr>
@@ -754,6 +774,7 @@ canvasRef.getFlow().fromJSON(json);`}</pre>
 					</tr>
 				</tbody>
 			</table>
+			</div>
 		</div>
 
 		<div class="type-def">
@@ -938,13 +959,23 @@ flow.fromJSON(json: Flow): void`}</pre>
 
 <style>
 	.api-page {
-		padding: 32px;
+		--kaykay-api-accent: var(--site-accent, #FFDC58);
+		--kaykay-api-muted: #b4b0a9;
+		padding: 40px 32px;
+		box-sizing: border-box;
+		width: 100%;
+		min-width: 0;
 		max-width: 900px;
 		margin: 0 auto;
 		color: #ccc;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		line-height: 1.65;
+		overflow-wrap: anywhere;
 	}
 
 	:global(.kaykay-light) .api-page {
+		--kaykay-api-accent: var(--site-accent, #806000);
+		--kaykay-api-muted: #65635f;
 		color: #333;
 	}
 
@@ -955,13 +986,13 @@ flow.fromJSON(json: Flow): void`}</pre>
 
 	.intro {
 		margin: 0 0 32px 0;
-		color: #888;
+		color: var(--kaykay-api-muted);
 		font-size: 1.1rem;
 	}
 
 	.api-search {
 		position: sticky;
-		top: 0;
+		top: 12px;
 		z-index: 5;
 		margin: 0 0 32px 0;
 		padding: 14px;
@@ -979,7 +1010,7 @@ flow.fromJSON(json: Flow): void`}</pre>
 	.api-search label {
 		display: block;
 		margin-bottom: 8px;
-		color: #888;
+		color: var(--kaykay-api-muted);
 		font-size: 0.8rem;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
@@ -999,17 +1030,35 @@ flow.fromJSON(json: Flow): void`}</pre>
 		border-radius: 7px;
 		color: #fff;
 		font-family: inherit;
+		font-size: 1rem;
+		min-height: 44px;
 	}
 
 	.api-search button {
 		padding: 0 12px;
-		background: #eb5425;
-		border: 1px solid #eb5425;
+		background: var(--site-accent-fill);
+		border: 1px solid var(--site-accent-fill);
 		border-radius: 7px;
-		color: #fff;
+		color: var(--site-accent-ink);
 		font-family: inherit;
 		font-weight: 700;
 		cursor: pointer;
+	}
+
+	.api-search button:hover {
+		background: var(--site-accent-hover);
+	}
+
+	.api-search input:focus-visible,
+	.api-search button:focus-visible,
+	.table-scroll:focus-visible {
+		outline: 2px solid var(--kaykay-api-accent);
+		outline-offset: 3px;
+	}
+
+	.api-search input::placeholder {
+		color: var(--kaykay-api-muted);
+		opacity: 1;
 	}
 
 	:global(.kaykay-light) .api-search input {
@@ -1025,10 +1074,10 @@ flow.fromJSON(json: Flow): void`}</pre>
 	.no-results {
 		margin: -12px 0 32px 0;
 		padding: 14px 16px;
-		background: rgba(235, 84, 37, 0.1);
-		border: 1px solid rgba(235, 84, 37, 0.3);
+		background: var(--site-accent-soft);
+		border: 1px solid var(--site-accent);
 		border-radius: 8px;
-		color: #f6a21a;
+		color: var(--kaykay-api-accent);
 	}
 
 	.api-section {
@@ -1040,7 +1089,7 @@ flow.fromJSON(json: Flow): void`}</pre>
 		margin: 0 0 24px 0;
 		padding-bottom: 8px;
 		border-bottom: 1px solid #1f1f1f;
-		color: #eb5425;
+		color: var(--kaykay-api-accent);
 	}
 
 	:global(.kaykay-light) .api-section > h2 {
@@ -1156,16 +1205,33 @@ flow.fromJSON(json: Flow): void`}</pre>
 		color: #fff;
 	}
 
+	.table-scroll {
+		overflow-x: auto;
+		overflow-wrap: normal;
+		scrollbar-width: thin;
+	}
+
 	.props-table {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: 0.9rem;
 	}
 
+	.props-table th:last-child,
+	.props-table td:last-child {
+		min-width: 240px;
+	}
+
+	code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.9em;
+	}
+
 	.props-table th,
 	.props-table td {
 		padding: 12px;
 		text-align: left;
+		vertical-align: top;
 		border-bottom: 1px solid #1f1f1f;
 	}
 
@@ -1175,7 +1241,7 @@ flow.fromJSON(json: Flow): void`}</pre>
 	}
 
 	.props-table th {
-		color: #888;
+		color: var(--kaykay-api-muted);
 		font-weight: 500;
 	}
 
@@ -1196,6 +1262,24 @@ flow.fromJSON(json: Flow): void`}</pre>
 	}
 
 	:global(.kaykay-light) .props-table code {
-		background: #1f1f1f;
+		background: #eae8e3;
+	}
+
+	:global(.kaykay-light) .props-table td:first-child {
+		color: #874409;
+	}
+
+	:global(.kaykay-light) .props-table td:nth-child(2) {
+		color: #166534;
+	}
+
+	@media (max-width: 768px) {
+		.api-page {
+			padding: 76px 22px 24px;
+		}
+
+		.api-search {
+			top: 64px;
+		}
 	}
 </style>

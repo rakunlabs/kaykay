@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../docs.css';
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
 	import ExampleToolbar from '../ExampleToolbar.svelte';
@@ -41,8 +42,8 @@
 	}
 </script>
 
-<div class="example-page">
-	<div class="example-sidebar">
+<div class="example-docs">
+	<div class="example-sidebar docs-panel">
 		<h1>Touch Support</h1>
 		<p>kaykay fully supports touch devices including tablets and phones.</p>
 		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/touch/+page.svelte" />
@@ -110,7 +111,7 @@
 		</div>
 	</div>
 
-	<div class="example-canvas">
+	<div class="docs-stage">
 		{#key canvasKey}
 			<Canvas {nodes} {edges} {nodeTypes} {callbacks} />
 		{/key}
@@ -118,25 +119,6 @@
 </div>
 
 <style>
-	.example-page {
-		display: flex;
-		height: 100%;
-	}
-
-	.example-sidebar {
-		width: 380px;
-		padding: 24px;
-		overflow-y: auto;
-		border-right: 1px solid #1f1f1f;
-		background: #161618;
-		flex-shrink: 0;
-	}
-
-	:global(.kaykay-light) .example-sidebar {
-		background: #fff;
-		border-right: 1px solid #e0e0e0;
-	}
-
 	.example-sidebar h1 {
 		margin: 0 0 8px 0;
 		font-size: 1.5rem;
@@ -144,7 +126,7 @@
 
 	.example-sidebar > p {
 		margin: 0 0 24px 0;
-		color: #888;
+		color: var(--docs-muted);
 	}
 
 	.section {
@@ -154,12 +136,12 @@
 	.section h3 {
 		margin: 0 0 12px 0;
 		font-size: 1rem;
-		color: #eb5425;
+		color: var(--docs-accent);
 	}
 
 	.section p {
 		margin: 0 0 12px 0;
-		color: #aaa;
+		color: var(--docs-muted);
 		font-size: 0.9rem;
 	}
 
@@ -201,7 +183,7 @@
 
 	.tip {
 		background: rgba(74, 158, 255, 0.1);
-		border-left: 3px solid #eb5425;
+		border-left: 3px solid var(--site-accent);
 		padding: 12px 16px;
 		font-size: 0.85rem;
 		color: #ccc;
@@ -211,8 +193,4 @@
 		color: #555;
 	}
 
-	.example-canvas {
-		flex: 1;
-		position: relative;
-	}
 </style>

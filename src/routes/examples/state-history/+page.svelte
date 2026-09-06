@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../docs.css';
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import Controls from '../../../lib/components/Controls.svelte';
 	import Minimap from '../../../lib/components/Minimap.svelte';
@@ -117,8 +118,8 @@
 	}
 </script>
 
-<div class="example-page">
-	<div class="example-sidebar">
+<div class="example-docs">
+	<div class="example-sidebar docs-panel">
 		<h1>State & History</h1>
 		<p>Undo/redo, clipboard, JSON import/export, node statuses, and change callbacks.</p>
 		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/state-history/+page.svelte" />
@@ -147,13 +148,13 @@
 
 		<div class="section">
 			<h3>Import / Export</h3>
-			<textarea bind:value={importJson} placeholder="Export first, then edit JSON here"></textarea>
+			<textarea aria-label="Flow JSON" bind:value={importJson} placeholder="Export first, then edit JSON here"></textarea>
 			<div class="button-grid">
 				<button onclick={loadFlow}>Load JSON</button>
 				<button onclick={() => importJson = selectedJson}>Reset Text</button>
 			</div>
 			{#if loadError}
-				<p class="error-text">{loadError}</p>
+				<p class="error-text" role="alert">{loadError}</p>
 			{/if}
 		</div>
 
@@ -169,7 +170,7 @@
 		</div>
 	</div>
 
-	<div class="example-canvas">
+	<div class="docs-stage">
 		{#key canvasKey}
 			<Canvas bind:this={canvasRef} {nodes} {edges} {nodeTypes} {config} {callbacks} {node_statuses}>
 				{#snippet controls()}
@@ -184,25 +185,6 @@
 </div>
 
 <style>
-	.example-page {
-		display: flex;
-		height: 100%;
-	}
-
-	.example-sidebar {
-		width: 360px;
-		padding: 24px;
-		overflow-y: auto;
-		background: #161618;
-		border-right: 1px solid #1f1f1f;
-		flex-shrink: 0;
-	}
-
-	:global(.kaykay-light) .example-sidebar {
-		background: #fff;
-		border-right: 1px solid #e0e0e0;
-	}
-
 	.example-sidebar h1 {
 		margin: 0 0 8px 0;
 		font-size: 1.5rem;
@@ -210,7 +192,7 @@
 
 	.example-sidebar > p {
 		margin: 0 0 24px 0;
-		color: #888;
+		color: var(--docs-muted);
 	}
 
 	.section {
@@ -220,12 +202,12 @@
 	.section h3 {
 		margin: 0 0 12px 0;
 		font-size: 1rem;
-		color: #eb5425;
+		color: var(--docs-accent);
 	}
 
 	.section p {
 		margin: 0 0 8px 0;
-		color: #aaa;
+		color: var(--docs-muted);
 		font-size: 0.9rem;
 	}
 
@@ -241,17 +223,17 @@
 
 	button {
 		padding: 9px 12px;
-		background: #eb5425;
+		background: var(--site-accent-fill);
 		border: 0;
 		border-radius: 6px;
-		color: #fff;
+		color: var(--site-accent-ink);
 		font-weight: 700;
 		cursor: pointer;
 		transition: background 0.15s ease;
 	}
 
 	button:hover:not(:disabled) {
-		background: #2d7fd3;
+		background: var(--site-accent-hover);
 	}
 
 	button:disabled {
@@ -280,11 +262,7 @@
 	}
 
 	textarea::placeholder {
-		color: #777;
-	}
-
-	:global(.kaykay-light) textarea::placeholder {
-		color: #888;
+		color: var(--docs-muted);
 	}
 
 	.change-line,
@@ -292,8 +270,12 @@
 		font-size: 12px;
 	}
 
-	.error-text {
+	.section .error-text {
 		color: #f87171;
+	}
+
+	:global(.kaykay-light) .section .error-text {
+		color: #b91c1c;
 	}
 
 	.feature-list {
@@ -306,11 +288,6 @@
 
 	:global(.kaykay-light) .feature-list {
 		color: #555;
-	}
-
-	.example-canvas {
-		flex: 1;
-		position: relative;
 	}
 
 	.floating-tools {
@@ -331,6 +308,6 @@
 
 	:global(.kaykay-light) code {
 		background: #e8e8e8;
-		color: #d97706;
+		color: #92400e;
 	}
 </style>

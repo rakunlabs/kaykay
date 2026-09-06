@@ -1,0 +1,93 @@
+.example-docs {
+	--docs-muted: #b4b0a9;
+	--docs-accent: var(--site-accent, #FFDC58);
+	--docs-border: #45423d;
+	display: flex;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+}
+
+.kaykay-light .example-docs {
+	--docs-muted: #65635f;
+	--docs-accent: var(--site-accent, #806000);
+	--docs-border: #dcdad5;
+}
+
+.example-docs > .docs-panel {
+	box-sizing: border-box;
+	width: clamp(340px, 32vw, 420px);
+	min-width: 0;
+	min-height: 0;
+	flex-shrink: 0;
+	padding: 24px;
+	overflow-y: auto;
+	border-right: 1px solid var(--docs-border);
+	background: #161618;
+	color: #f0eeea;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	line-height: 1.6;
+	overflow-wrap: anywhere;
+}
+
+.kaykay-light .example-docs > .docs-panel {
+	background: #fff;
+	color: #242321;
+}
+
+.example-docs > .docs-stage {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	position: relative;
+}
+
+.example-docs .docs-panel :where(button, select, input) {
+	font-family: inherit;
+}
+
+.example-docs .docs-panel :where(button, select) {
+	min-height: 40px;
+}
+
+.example-docs .docs-panel :where(code, pre) {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	overflow-wrap: normal;
+}
+
+.example-docs .docs-panel :where(a) {
+	color: var(--docs-accent);
+	text-underline-offset: 3px;
+}
+
+.example-docs .docs-panel :where(button, a, input, select, textarea):focus-visible {
+	outline: 2px solid var(--docs-accent);
+	outline-offset: 3px;
+}
+
+@media (max-width: 1000px) {
+	.example-docs {
+		height: auto;
+		min-height: 100%;
+		flex-direction: column;
+	}
+
+	.example-docs > .docs-panel {
+		width: 100%;
+		overflow: visible;
+		border-right: 0;
+		border-bottom: 1px solid var(--docs-border);
+	}
+
+	.example-docs > .docs-stage {
+		flex: none;
+		height: 55dvh;
+		min-height: 400px;
+	}
+}
+
+@media (max-width: 768px) {
+	.example-docs > .docs-panel {
+		padding: 64px 20px 24px;
+	}
+}

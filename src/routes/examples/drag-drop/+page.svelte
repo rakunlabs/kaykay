@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../docs.css';
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import Controls from '../../../lib/components/Controls.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes, Position } from '../../../lib/types/index.js';
@@ -190,8 +191,8 @@
 	}
 </script>
 
-<div class="example-page">
-	<div class="example-sidebar">
+<div class="example-docs">
+	<div class="example-sidebar docs-panel">
 		<h1>Drag & Drop</h1>
 		<p>Build a node palette by using native HTML drag-and-drop with the Canvas instance helpers.</p>
 		<ExampleToolbar onReset={resetExample} sourcePath="src/routes/examples/drag-drop/+page.svelte" />
@@ -239,7 +240,7 @@
 	</div>
 
 	<div
-		class="example-canvas"
+		class="example-canvas docs-stage"
 		class:drop-active={isDragOver}
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}
@@ -257,25 +258,6 @@
 </div>
 
 <style>
-	.example-page {
-		display: flex;
-		height: 100%;
-	}
-
-	.example-sidebar {
-		width: 400px;
-		padding: 24px;
-		overflow-y: auto;
-		border-right: 1px solid #1f1f1f;
-		background: #161618;
-		flex-shrink: 0;
-	}
-
-	:global(.kaykay-light) .example-sidebar {
-		background: #fff;
-		border-right: 1px solid #e0e0e0;
-	}
-
 	.example-sidebar h1 {
 		margin: 0 0 8px 0;
 		font-size: 1.5rem;
@@ -283,7 +265,7 @@
 
 	.example-sidebar > p {
 		margin: 0 0 20px 0;
-		color: #888;
+		color: var(--docs-muted);
 		line-height: 1.6;
 	}
 
@@ -294,7 +276,7 @@
 	}
 
 	.palette-item {
-		--accent: #eb5425;
+		--accent: var(--site-accent);
 
 		display: grid;
 		gap: 6px;
@@ -346,7 +328,7 @@
 	.section h3 {
 		margin: 0 0 12px 0;
 		font-size: 1rem;
-		color: #eb5425;
+		color: var(--docs-accent);
 	}
 
 	.code-block {
@@ -377,8 +359,8 @@
 
 	.tip {
 		padding: 14px 16px;
-		background: rgba(235, 84, 37, 0.1);
-		border: 1px solid rgba(235, 84, 37, 0.3);
+		background: var(--site-accent-soft);
+		border: 1px solid var(--site-accent);
 		border-radius: 8px;
 		color: #fca5a5;
 		font-size: 0.85rem;
@@ -391,24 +373,21 @@
 		border-color: #fed7aa;
 	}
 
-	.example-canvas {
-		position: relative;
-		flex: 1;
-		min-width: 0;
-	}
-
 	.example-canvas.drop-active::after {
 		content: '';
 		position: absolute;
 		inset: 16px;
 		z-index: 20;
-		border: 2px dashed #eb5425;
+		border: 2px dashed var(--site-accent);
 		border-radius: 18px;
-		background: rgba(235, 84, 37, 0.08);
+		background: var(--site-accent-soft);
 		pointer-events: none;
 	}
 
 	.drop-hint {
+		max-width: calc(100% - 32px);
+		box-sizing: border-box;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		position: absolute;
 		top: 16px;
 		left: 16px;
@@ -428,20 +407,15 @@
 		color: #555;
 	}
 
-	@media (max-width: 900px) {
-		.example-page {
-			flex-direction: column;
-		}
-
-		.example-sidebar {
-			width: auto;
-			max-height: 45vh;
-			border-right: 0;
-			border-bottom: 1px solid #1f1f1f;
-		}
-
+	@media (max-width: 1000px) {
 		.palette {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 480px) {
+		.palette {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>

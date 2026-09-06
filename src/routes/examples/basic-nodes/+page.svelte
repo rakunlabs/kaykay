@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../docs.css';
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
 	import ExampleToolbar from '../ExampleToolbar.svelte';
@@ -95,8 +96,8 @@
 	}
 </script>
 
-<div class="docs-page">
-	<div class="docs-sidebar">
+<div class="example-docs">
+	<div class="docs-sidebar docs-panel">
 		<div class="docs-header">
 			<h1>Basic Nodes</h1>
 			<p>Learn how to create different types of nodes with various handle configurations.</p>
@@ -361,7 +362,7 @@
 		</div>
 	</div>
 
-	<div class="docs-preview">
+	<div class="docs-stage">
 		<div class="preview-label">Live Preview</div>
 		{#key `${currentSection}-${canvasKey}`}
 			<Canvas nodes={currentNodes} edges={currentEdges} {nodeTypes} />
@@ -370,26 +371,10 @@
 </div>
 
 <style>
-	.docs-page {
-		display: flex;
-		height: 100%;
-	}
-
 	.docs-sidebar {
-		width: 500px;
-		padding: 24px;
-		overflow-y: auto;
-		border-right: 1px solid #1f1f1f;
-		background: #161618;
-		flex-shrink: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
-	}
-
-	:global(.kaykay-light) .docs-sidebar {
-		background: #fff;
-		border-right: 1px solid #e0e0e0;
 	}
 
 	.docs-header h1 {
@@ -399,7 +384,7 @@
 
 	.docs-header p {
 		margin: 0;
-		color: #888;
+		color: var(--docs-muted);
 		font-size: 0.95rem;
 	}
 
@@ -427,9 +412,9 @@
 	}
 
 	.docs-nav button.active {
-		background: #eb5425;
-		border-color: #eb5425;
-		color: #fff;
+		background: var(--site-accent-fill);
+		border-color: var(--site-accent-fill);
+		color: var(--site-accent-ink);
 	}
 
 	:global(.kaykay-light) .docs-nav button {
@@ -444,19 +429,20 @@
 	}
 
 	:global(.kaykay-light) .docs-nav button.active {
-		background: #eb5425;
-		border-color: #eb5425;
-		color: #fff;
+		background: var(--site-accent-fill);
+		border-color: var(--site-accent-fill);
+		color: var(--site-accent-ink);
 	}
 
 	.docs-content {
 		flex: 1;
+		min-width: 0;
 	}
 
 	.docs-content section h2 {
 		margin: 0 0 12px 0;
 		font-size: 1.2rem;
-		color: #eb5425;
+		color: var(--docs-accent);
 	}
 
 	.docs-content section p {
@@ -480,7 +466,7 @@
 
 	:global(.kaykay-light) .docs-content code {
 		background: #f0f0f0;
-		color: #d97706;
+		color: #92400e;
 	}
 
 	.code-block {
@@ -501,7 +487,7 @@
 		background: #252422;
 		border-bottom: 1px solid #1f1f1f;
 		font-size: 0.75rem;
-		color: #888;
+		color: var(--docs-muted);
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 	}
 
@@ -541,7 +527,7 @@
 	.info-box strong {
 		display: block;
 		margin-bottom: 8px;
-		color: #eb5425;
+		color: var(--docs-accent);
 		font-size: 0.85rem;
 	}
 
@@ -567,7 +553,7 @@
 
 	:global(.kaykay-light) .info-box code {
 		background: #e8e8e8;
-		color: #d97706;
+		color: #92400e;
 	}
 
 	.tips {
@@ -581,6 +567,10 @@
 		margin: 0 0 12px 0;
 		font-size: 0.95rem;
 		color: #22c55e;
+	}
+
+	:global(.kaykay-light) .tips h3 {
+		color: #15803d;
 	}
 
 	.tips ul {
@@ -605,15 +595,11 @@
 
 	:global(.kaykay-light) .tips code {
 		background: #e8e8e8;
-		color: #d97706;
-	}
-
-	.docs-preview {
-		flex: 1;
-		position: relative;
+		color: #92400e;
 	}
 
 	.preview-label {
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 		position: absolute;
 		top: 12px;
 		left: 12px;

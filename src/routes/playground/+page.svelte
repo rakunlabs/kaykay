@@ -627,8 +627,11 @@
 
 <style>
 	.demo-container {
+		--kaykay-playground-focus: var(--site-accent, #FFDC58);
 		width: 100%;
-		height: 100%;
+		min-height: 100%;
+		min-width: 0;
+		container: playground / inline-size;
 		display: flex;
 		flex-direction: column;
 		color: white;
@@ -636,11 +639,13 @@
 	}
 
 	:global(.kaykay-light) .demo-container {
+		--kaykay-playground-focus: var(--site-accent, #806000);
 		background: #f5f5f5;
 		color: #333;
 	}
 
 	.controls {
+		flex: none;
 		padding: 1rem;
 		background: #1f1f1f;
 		border-bottom: 1px solid #333;
@@ -657,6 +662,8 @@
 
 	.button-group {
 		display: flex;
+		flex-wrap: wrap;
+		min-width: 0;
 		gap: 0.5rem;
 	}
 
@@ -668,9 +675,9 @@
 
 	.controls button {
 		padding: 0.5rem 1rem;
-		background: #eb5425;
+		background: var(--site-accent-fill);
 		border-radius: 4px;
-		color: white;
+		color: var(--site-accent-ink);
 		border: 1px solid #33333340;
 		cursor: pointer;
 		font-size: 0.9rem;
@@ -678,12 +685,13 @@
 	}
 
 	.controls button:hover {
-		background: #1f1f1f;
-		border: 1px solid #eb5425;
+		background: var(--site-accent-hover);
+		border-color: var(--site-accent-hover);
 	}
 
 	.controls button.danger {
 		background: #dc2626;
+		color: #fff;
 	}
 
 	.controls button.danger:hover {
@@ -701,10 +709,10 @@
 	}
 
 	.playground-workspace {
-		flex: 1;
-		min-height: 0;
+		flex: 1 0 520px;
+		min-height: 520px;
+		min-width: 0;
 		display: flex;
-		container-type: inline-size;
 	}
 
 	.canvas-wrapper {
@@ -715,7 +723,11 @@
 	}
 
 	.json-panel {
+		flex: 0 0 390px;
 		width: 390px;
+		min-width: 0;
+		height: auto;
+		overflow-y: auto;
 		box-sizing: border-box;
 		padding: 14px;
 		background: #161618;
@@ -733,6 +745,8 @@
 
 	.json-panel-header {
 		display: flex;
+		flex-wrap: wrap;
+		flex: none;
 		gap: 12px;
 		align-items: flex-start;
 		justify-content: space-between;
@@ -741,18 +755,19 @@
 	.json-panel h2 {
 		margin: 0 0 4px 0;
 		font-size: 1rem;
-		color: #eb5425;
+		color: var(--kaykay-playground-focus);
 	}
 
 	.json-panel p {
 		margin: 0;
 		font-size: 0.78rem;
-		color: #888;
+		color: #b4b0a9;
 		line-height: 1.4;
 	}
 
 	.json-actions {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 6px;
 		flex-shrink: 0;
 	}
@@ -760,21 +775,23 @@
 	.json-actions button {
 		padding: 0.4rem 0.55rem;
 		background: transparent;
-		border: 1px solid #eb5425;
+		border: 1px solid var(--site-accent);
 		border-radius: 4px;
-		color: #eb5425;
+		color: var(--kaykay-playground-focus);
 		font-family: inherit;
 		font-size: 0.75rem;
 		cursor: pointer;
 	}
 
 	.json-actions button:hover {
-		background: rgba(235, 84, 37, 0.12);
+		background: var(--site-accent-soft);
 	}
 
 	.json-editor {
 		flex: 1;
-		min-height: 0;
+		min-height: 160px;
+		min-width: 0;
+		overflow: auto;
 		width: 100%;
 		box-sizing: border-box;
 		padding: 12px;
@@ -784,12 +801,17 @@
 		color: #dbeafe;
 		font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 		resize: none;
-		outline: none;
 	}
 
 	.json-editor:focus {
-		border-color: #eb5425;
-		box-shadow: 0 0 0 2px rgba(235, 84, 37, 0.12);
+		outline: 2px solid var(--kaykay-playground-focus);
+		outline-offset: 2px;
+	}
+
+	.controls button:focus-visible,
+	.json-actions button:focus-visible {
+		outline: 2px solid var(--kaykay-playground-focus);
+		outline-offset: 3px;
 	}
 
 	:global(.kaykay-light) .json-editor {
@@ -799,6 +821,8 @@
 	}
 
 	.json-status {
+		flex: none;
+		overflow-wrap: anywhere;
 		min-height: 1.1rem;
 		color: #22c55e !important;
 	}
@@ -807,45 +831,46 @@
 		color: #f87171 !important;
 	}
 
-	@container (max-width: 1400px) {
+	:global(.kaykay-light) .json-panel p {
+		color: #65635f;
+	}
+
+	:global(.kaykay-light) .json-status {
+		color: #166534 !important;
+	}
+
+	:global(.kaykay-light) .json-status.error {
+		color: #b91c1c !important;
+	}
+
+	@container playground (max-width: 1000px) {
 		.playground-workspace {
 			flex-direction: column;
+			flex: none;
 		}
 
 		.canvas-wrapper {
-			min-height: 520px;
+			flex: none;
+			height: 520px;
 		}
 
 		.json-panel {
+			flex: none;
 			width: 100%;
-			height: 320px;
+			height: 360px;
 			border-left: 0;
 			border-top: 1px solid #333;
 		}
 
 		:global(.kaykay-light) .json-panel {
+			border-left: 0;
 			border-top-color: #ddd;
 		}
 	}
 
-	@media (max-width: 1400px) {
-		.playground-workspace {
-			flex-direction: column;
-		}
-
-		.canvas-wrapper {
-			min-height: 520px;
-		}
-
-		.json-panel {
-			width: 100%;
-			height: 320px;
-			border-left: 0;
-			border-top: 1px solid #333;
-		}
-
-		:global(.kaykay-light) .json-panel {
-			border-top-color: #ddd;
+	@media (max-width: 768px) {
+		.controls {
+			padding-top: 76px;
 		}
 	}
 </style>

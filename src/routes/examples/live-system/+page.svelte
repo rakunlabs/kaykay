@@ -10,7 +10,7 @@
 
 	const live = $state<LiveSystem>({
 		snapshot: initialSnapshot(), settings: { load: 400, cache_hit: 0.75, api_failed: false }, running: true,
-		animation: { pattern: 'dots', speed: 60, size: 5, spacing: 22, color: '#b57408', reverse: false, paused: false },
+		animation: { pattern: 'dots', speed: 60, size: 5, spacing: 22, color: '#FFDC58', reverse: false, paused: false },
 		label_background: true, label_opacity: 0.8, traffic_speed: true, line_color: '#888888',
 	});
 	setContext(LIVE_SYSTEM, live);
@@ -56,7 +56,7 @@
 		throughput = 0;
 		live.settings = { load: 400, cache_hit: 0.75, api_failed: false };
 		live.running = true;
-		live.animation = { pattern: 'dots', speed: 60, size: 5, spacing: 22, color: '#b57408', reverse: false, paused: false };
+		live.animation = { pattern: 'dots', speed: 60, size: 5, spacing: 22, color: '#FFDC58', reverse: false, paused: false };
 		live.label_background = true;
 		live.label_opacity = 0.8;
 		live.traffic_speed = true;
@@ -153,18 +153,18 @@
 	p { font-size: 12px; line-height: 1.7; color: var(--live-muted); }
 	section { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--live-border); }
 	button { width: 100%; padding: 11px 12px; border: 1px solid var(--live-border); border-radius: 5px; font: inherit; font-size: 12px; background: var(--live-surface); color: var(--live-text); cursor: pointer; }
-	button:hover { border-color: #b57408; }
+	button:hover { border-color: var(--site-accent); }
 	button:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
-	.kaykay-primary { background: #f6a21a; border-color: #f6a21a; color: #201600; font-weight: 600; }
+	.kaykay-primary { background: var(--site-accent-fill); border-color: var(--site-accent-fill); color: var(--site-accent-ink); font-weight: 600; }
 	label { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin-top: 24px; }
-	input { width: 100%; margin: 14px 0 22px; accent-color: #b57408; }
+	input { width: 100%; margin: 14px 0 22px; accent-color: var(--site-accent); }
 	select { width: 100%; margin-top: 12px; padding: 10px; font: inherit; font-size: 12px; color: var(--live-text); background: var(--live-surface); border: 1px solid var(--live-border); border-radius: 5px; }
 	.kaykay-check { justify-content: flex-start; align-items: center; margin-top: 14px; }
 	.kaykay-check input { width: 16px; height: 16px; margin: 0; }
 	.kaykay-color-controls { display: flex; gap: 20px; }
 	.kaykay-color-controls label { flex: 1; flex-direction: column; margin-top: 0; }
 	input[type='color'] { width: 100%; height: 34px; margin: 0 0 10px; padding: 2px; border: 1px solid var(--live-border); background: var(--live-surface); cursor: pointer; }
-	button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #b57408; outline-offset: 4px; }
+	button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--site-accent); outline-offset: 4px; }
 	dl { margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 	dl div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; }
 	dt { color: var(--live-muted); } dd { margin: 0; }

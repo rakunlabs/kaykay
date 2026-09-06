@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../docs.css';
 	import Canvas from '../../../lib/components/Canvas.svelte';
 	import type { FlowNode, FlowEdge, NodeTypes } from '../../../lib/types/index.js';
 	import type { FlowState } from '../../../lib/stores/flow.svelte.js';
@@ -92,8 +93,8 @@
 	}
 </script>
 
-<div class="example-page">
-	<div class="example-sidebar">
+<div class="example-docs">
+	<div class="example-sidebar docs-panel">
 		<h1>Connections & Edges</h1>
 		<p>Learn about different edge types, styles, colors, and interactive features.</p>
 		<ExampleToolbar
@@ -190,7 +191,7 @@
 		</div>
 	</div>
 
-	<div class="example-canvas">
+	<div class="docs-stage">
 		{#key canvasKey}
 			<Canvas bind:this={canvasComponent} {nodes} {edges} {nodeTypes} {callbacks} />
 		{/key}
@@ -198,25 +199,6 @@
 </div>
 
 <style>
-	.example-page {
-		display: flex;
-		height: 100%;
-	}
-
-	.example-sidebar {
-		width: 380px;
-		padding: 24px;
-		overflow-y: auto;
-		border-right: 1px solid #1f1f1f;
-		background: #161618;
-		flex-shrink: 0;
-	}
-
-	:global(.kaykay-light) .example-sidebar {
-		background: #fff;
-		border-right: 1px solid #e0e0e0;
-	}
-
 	.example-sidebar h1 {
 		margin: 0 0 8px 0;
 		font-size: 1.5rem;
@@ -224,7 +206,7 @@
 
 	.example-sidebar > p {
 		margin: 0 0 24px 0;
-		color: #888;
+		color: var(--docs-muted);
 	}
 
 	.section {
@@ -234,12 +216,12 @@
 	.section h3 {
 		margin: 0 0 12px 0;
 		font-size: 1rem;
-		color: #eb5425;
+		color: var(--docs-accent);
 	}
 
 	.section p {
 		margin: 0 0 8px 0;
-		color: #aaa;
+		color: var(--docs-muted);
 		font-size: 0.9rem;
 	}
 
@@ -264,7 +246,7 @@
 		display: block;
 		margin-bottom: 6px;
 		font-size: 0.85rem;
-		color: #888;
+		color: var(--docs-muted);
 	}
 
 	.form-group select {
@@ -285,12 +267,13 @@
 
 	.color-options {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 	}
 
 	.color-swatch {
-		width: 28px;
-		height: 28px;
+		width: 40px;
+		height: 40px;
 		border-radius: 6px;
 		border: 2px solid transparent;
 		cursor: pointer;
@@ -304,6 +287,11 @@
 	.color-swatch.active {
 		border-color: #fff;
 		box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+	}
+
+	:global(.kaykay-light) .color-swatch.active {
+		border-color: #242321;
+		box-shadow: 0 0 0 2px #fff;
 	}
 
 	.checkbox-label {
@@ -321,17 +309,17 @@
 	.add-btn {
 		width: 100%;
 		padding: 12px;
-		background: #eb5425;
+		background: var(--site-accent-fill);
 		border: none;
 		border-radius: 6px;
-		color: #fff;
+		color: var(--site-accent-ink);
 		font-size: 0.9rem;
 		cursor: pointer;
 		transition: background 0.15s ease;
 	}
 
 	.add-btn:hover {
-		background: #2d7fd3;
+		background: var(--site-accent-hover);
 	}
 
 	.code-block {
@@ -359,8 +347,4 @@
 		color: #0969da;
 	}
 
-	.example-canvas {
-		flex: 1;
-		position: relative;
-	}
 </style>
