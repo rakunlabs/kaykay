@@ -1,10 +1,14 @@
 <script lang="ts">
-	import type { Position, EdgeStyle } from '../types/index.js';
+	import type { Position, EdgeStyle, FlowEdge } from '../types/index.js';
+	import EdgeLabel from './EdgeLabel.svelte';
+	import EdgeAnimation from './EdgeAnimation.svelte';
 
 	interface Props {
 		path: string;
 		selected?: boolean;
 		animated?: boolean;
+		animation?: FlowEdge['animation'];
+		label_background?: FlowEdge['label_background'];
 		label?: string;
 		label_position?: Position;
 		color?: string;
@@ -19,6 +23,8 @@
 		path,
 		selected = false,
 		animated = false,
+		animation,
+		label_background,
 		label,
 		label_position,
 		color = 'var(--kaykay-edge-stroke, #888)',
@@ -47,6 +53,7 @@
 	class="kaykay-base-edge {className}"
 	class:selected
 	class:animated
+	class:legacy_animated={animated && animation === undefined}
 	style:color={color}
 >
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -62,10 +69,13 @@
 		d={path}
 		style:stroke={color}
 		style:stroke-width={selected ? stroke_width + 1 : stroke_width}
-		style:stroke-dasharray={strokeDashArray}
+		style:stroke-dasharray={animated && animation?.pattern === 'bands' ? 'none' : strokeDashArray}
 	/>
+	{#if animated && animation}
+		<EdgeAnimation {path} {animation} stroke_width={selected ? stroke_width + 1 : stroke_width} />
+	{/if}
 	{#if label && label_position}
-		<text class="kaykay-base-edge-label" x={label_position.x} y={label_position.y}>{label}</text>
+		<EdgeLabel {label} position={label_position} background={label_background} class="kaykay-base-edge-label" />
 	{/if}
 </g>
 
@@ -90,7 +100,7 @@
 		filter: brightness(1.25);
 	}
 
-	.kaykay-base-edge.animated .kaykay-base-edge-path {
+	.kaykay-base-edge.legacy_animated .kaykay-base-edge-path {
 		animation: kaykay-base-edge-dash-flow 0.5s linear infinite;
 	}
 
@@ -100,12 +110,7 @@
 		}
 	}
 
-	.kaykay-base-edge-label {
-		fill: var(--kaykay-edge-label, #888);
-		font-size: 12px;
-		text-anchor: middle;
-		dominant-baseline: middle;
-		pointer-events: none;
-		user-select: none;
+	@media (prefers-reduced-motion: reduce) {
+		.kaykay-base-edge.legacy_animated .kaykay-base-edge-path { animation-play-state: paused; }
 	}
 </style>

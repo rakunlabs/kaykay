@@ -486,11 +486,38 @@ const logicalEdges = resolveVirtualWireEdges(nodes, edges);`}</pre>
   style?: 'solid' | 'dashed' | 'dotted';
   color?: string;
   animated?: boolean;
+  animation?: EdgeAnimation;
   label?: string;
+  label_background?: boolean | EdgeLabelBackground;
   waypoints?: Position[];
   data?: T;
 }`}</pre>
 			</div>
+		</div>
+
+		<div class="type-def">
+			<h3>Edge Appearance</h3>
+			<div class="code-block">
+				<pre>{`interface EdgeLabelBackground {
+  color?: string;   // Theme background by default
+  opacity?: number; // Background only, 0-1, default 1
+  padding?: number; // Canvas units, default 4
+  radius?: number;  // Canvas units, default 4
+}
+
+type EdgeAnimationPattern = 'dots' | 'dashes' | 'squares' | 'diamonds' | 'bands';
+
+interface EdgeAnimation {
+  pattern?: EdgeAnimationPattern; // Default dots
+  speed?: number;    // Canvas units/second, default 48; 0 freezes
+  color?: string;    // Inherits edge color
+  size?: number;     // Default 4; band/dash length = 3 * size
+  spacing?: number;  // Gap, default 20
+  reverse?: boolean;
+  paused?: boolean;
+}`}</pre>
+			</div>
+			<p>Set <code>animated: true</code> to enable motion. Set <code>label_background: true</code> for readable labels above the animation. These props also work on <code>BaseEdge</code>. Bands alternate the edge and animation colors; reduced-motion preferences pause motion.</p>
 		</div>
 
 		<div class="type-def">

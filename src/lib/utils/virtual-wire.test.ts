@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Flow, FlowEdge, FlowNode } from '../types/index.js';
+import type { EdgeLabelBackground, Flow, FlowEdge, FlowNode } from '../types/index.js';
 import {
 	flattenVirtualWireFlow,
 	hydrateVirtualWireFlow,
@@ -18,6 +18,64 @@ function node(id: string, type = 'basic'): FlowNode {
 }
 
 describe('virtual wire graph utilities', () => {
+	it('preserves and isolates options in direct, resolved, metadata, and hydrated edges', () => {
+		const flow: Flow = {
+			nodes: [
+				node('source'), node('target'),
+				{ ...node('wire-in', VIRTUAL_WIRE_INPUT_TYPE), data: { pair_id: 'wire-a' } },
+				{ ...node('wire-out', VIRTUAL_WIRE_OUTPUT_TYPE), data: { pair_id: 'wire-a' } },
+			],
+			edges: [
+				{ id: 'regular', source: 'source', source_handle: 'out', target: 'target', target_handle: 'in' },
+				{ id: 'source-wire', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-1' },
+				{ id: 'wire-target', source: 'wire-out', source_handle: 'out-1', target: 'target', target_handle: 'in' },
+				{ id: 'incomplete', source: 'source', source_handle: 'out', target: 'wire-in', target_handle: 'in-2' },
+			].map((edge, index) => ({
+				...edge,
+				label_background: { color: `color-${index}`, padding: index, radius: 4 },
+				animated: true,
+				animation: { pattern: 'bands', speed: index + 1, paused: true, reverse: false },
+			})),
+		};
+		const flattened = flattenVirtualWireFlow(flow);
+		const metadata = flattened.kaykay!.virtual_wires!.edges;
+		const hydrated = hydrateVirtualWireFlow(flattened);
+		const roundtripped = hydrateVirtualWireFlow(JSON.parse(JSON.stringify(flattened)));
+		for (const original of flow.edges) {
+			expect(roundtripped.edges.find((edge) => edge.id === original.id)).toMatchObject(original);
+			const restored = hydrated.edges.find((edge) => edge.id === original.id)!;
+			expect(restored).toMatchObject(original);
+			restored.animation!.speed = 99;
+			(restored.label_background as EdgeLabelBackground).padding = 99;
+			expect(original.animation!.speed).not.toBe(99);
+			expect((original.label_background as EdgeLabelBackground).padding).not.toBe(99);
+		}
+		for (const edge of [...flattened.edges, ...metadata]) {
+			expect(edge.animation!.speed).not.toBe(99);
+			expect((edge.label_background as EdgeLabelBackground).padding).not.toBe(99);
+		}
+		const resolved = flattened.edges.find((edge) => edge.id.startsWith('virtual:'))!;
+		expect(resolved.animation).toEqual(flow.edges[2].animation);
+		expect(resolved.label_background).toEqual(flow.edges[2].label_background);
+		resolved.animation!.speed = 100;
+		(resolved.label_background as EdgeLabelBackground).padding = 100;
+		expect(metadata[1].animation).toEqual(flow.edges[2].animation);
+		expect(metadata[1].label_background).toEqual(flow.edges[2].label_background);
+		metadata[1].animation!.speed = 101;
+		(metadata[1].label_background as EdgeLabelBackground).padding = 101;
+		expect(flow.edges[2].animation!.speed).toBe(3);
+		expect((flow.edges[2].label_background as EdgeLabelBackground).padding).toBe(2);
+
+		const direct_flow: Flow = { nodes: flow.nodes.slice(0, 2), edges: [flow.edges[0]] };
+		for (const cloned of [flattenVirtualWireFlow(direct_flow), hydrateVirtualWireFlow(direct_flow)]) {
+			expect(cloned.edges[0]).toMatchObject(flow.edges[0]);
+			cloned.edges[0].animation!.speed = 102;
+			(cloned.edges[0].label_background as EdgeLabelBackground).padding = 102;
+			expect(flow.edges[0].animation!.speed).toBe(1);
+			expect((flow.edges[0].label_background as EdgeLabelBackground).padding).toBe(0);
+		}
+	});
+
 	it('collapses virtual wire channel edges into logical direct edges', () => {
 		const nodes: FlowNode[] = [
 			node('source'),

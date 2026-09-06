@@ -58,6 +58,7 @@
 		{ href: '/examples/groups', label: 'Groups', icon: '📁' },
 		{ href: '/examples/styling', label: 'Styling & Theming', icon: '🎨' },
 		{ href: '/examples/state-history', label: 'State & History', icon: '↺' },
+		{ href: '/examples/live-system', label: 'Live System', icon: '~' },
 		{ href: '/examples/blender-style', label: 'Blender Style', icon: 'B' },
 		{ href: '/examples/touch', label: 'Touch Support', icon: '👆' },
 		{ href: '/examples/api', label: 'API Reference', icon: '📖' },
@@ -257,7 +258,7 @@
 	}
 
 	.logo {
-		width: 64px;
+		width: 48px;
 		flex-shrink: 0;
 	}
 

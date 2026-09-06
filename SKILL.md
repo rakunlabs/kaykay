@@ -131,11 +131,24 @@ interface FlowEdge<T = Record<string, unknown>> {
   target_handle: string;
   type?: 'bezier' | 'straight' | 'step' | string;
   label?: string;
+  label_background?: boolean | { color?: string; opacity?: number; padding?: number; radius?: number };
+  animated?: boolean;
+  animation?: {
+    pattern?: 'dots' | 'dashes' | 'squares' | 'diamonds' | 'bands';
+    speed?: number;
+    color?: string;
+    size?: number;
+    spacing?: number;
+    reverse?: boolean;
+    paused?: boolean;
+  };
   data?: T;
 }
 ```
 
 Only put serializable data in `node.data` and `edge.data`.
+
+Use `label_background: true` to keep text readable above moving edges. Animation options require `animated: true`; speed is canvas units/second (0 freezes), and `bands` alternates the base edge color with `animation.color`. Both built-in edges and `BaseEdge` support these fields. Forward `animated`, `animation`, and `label_background` explicitly when composing `BaseEdge` in a custom edge. `updateEdge` shallow-merges; spread the old animation options when updating only speed. See `USAGE.md` for defaults and bounds.
 
 ## Loading And Saving
 

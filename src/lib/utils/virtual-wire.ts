@@ -43,6 +43,8 @@ function cloneNode(node: FlowNode): FlowNode {
 function cloneEdge(edge: FlowEdge): FlowEdge {
 	return {
 		...edge,
+		label_background: cloneSerializable(edge.label_background),
+		animation: cloneSerializable(edge.animation),
 		waypoints: edge.waypoints?.map((waypoint) => ({ ...waypoint })),
 		data: edge.data === undefined ? undefined : cloneSerializable(edge.data),
 	};

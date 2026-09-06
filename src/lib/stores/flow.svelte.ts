@@ -140,6 +140,8 @@ export class FlowState {
 	private cloneEdge(edge: FlowEdge): FlowEdge {
 		return {
 			...edge,
+			label_background: cloneSerializable(edge.label_background),
+			animation: cloneSerializable(edge.animation),
 			waypoints: edge.waypoints?.map((waypoint) => ({ ...waypoint })),
 			data: edge.data === undefined ? undefined : cloneSerializable(edge.data),
 		};
@@ -970,6 +972,8 @@ export class FlowState {
 				target_handle: e.target_handle,
 				type: e.type,
 				label: e.label,
+				label_background: cloneSerializable(e.label_background),
+				animation: cloneSerializable(e.animation),
 				waypoints: e.waypoints,
 				style: e.style,
 				animated: e.animated,
@@ -1263,6 +1267,8 @@ export class FlowState {
 				target_handle: edge.target_handle,
 				type: edge.type,
 				label: edge.label,
+				label_background: cloneSerializable(edge.label_background),
+				animation: cloneSerializable(edge.animation),
 				waypoints: edge.waypoints ? edge.waypoints.map((wp) => ({ ...wp })) : undefined,
 				style: edge.style,
 				animated: edge.animated,
@@ -1555,6 +1561,8 @@ export class FlowState {
 				target_handle: e.target_handle,
 				type: e.type,
 				label: e.label,
+				label_background: cloneSerializable(e.label_background),
+				animation: cloneSerializable(e.animation),
 				waypoints: e.waypoints?.map((wp) => ({ ...wp })),
 				style: e.style,
 				animated: e.animated,
@@ -1655,7 +1663,7 @@ export class FlowState {
 			const new_source = id_map.get(edge.source)!;
 			const new_target = id_map.get(edge.target)!;
 			return {
-				...edge,
+				...this.cloneEdge(edge),
 				id: `e-${new_source}-${edge.source_handle}-${new_target}-${edge.target_handle}`,
 				source: new_source,
 				target: new_target,

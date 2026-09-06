@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { FlowEdge, FlowNode, HandleState } from '../types/index.js';
+import type { EdgeAnimation, EdgeAnimationPattern, EdgeLabelBackground, Flow, FlowEdge, FlowNode, HandleState } from '../index.js';
 import { FlowState } from './flow.svelte.js';
 import { VIRTUAL_WIRE_INPUT_TYPE, VIRTUAL_WIRE_OUTPUT_TYPE } from '../utils/virtual-wire.js';
 
@@ -39,6 +39,106 @@ function registerDefaultHandles(flow: FlowState, node_id: string): void {
 }
 
 describe('FlowState serialization and loading', () => {
+	const label_background: EdgeLabelBackground = { color: '#123456', opacity: 0.8, padding: 0, radius: 4 };
+	const animation: EdgeAnimation = {
+		pattern: 'diamonds', speed: 2, color: '#abcdef', size: 3, spacing: 8, reverse: true, paused: false,
+	};
+	function styledEdge(): FlowEdge {
+		return {
+			id: 'a-b', source: 'a', source_handle: 'out', target: 'b', target_handle: 'in',
+			label: 'Traffic', label_background: { ...label_background },
+			animated: false, animation: { ...animation },
+		};
+	}
+
+	it.each<EdgeAnimationPattern>(['dashes', 'dots', 'bands', 'squares', 'diamonds'])('roundtrips %s options without enabling animation', (pattern) => {
+		const edge = styledEdge();
+		edge.animation!.pattern = pattern;
+		const flow = new FlowState([node('a'), node('b')], [edge]);
+		const exported: Flow = JSON.parse(JSON.stringify(flow.toJSON()));
+		const loaded = new FlowState();
+		loaded.fromJSON(exported);
+		expect(loaded.edges[0]).toMatchObject(edge);
+		expect(loaded.toJSON()).toEqual(flow.toJSON());
+		exported.edges[0].animation!.speed = 99;
+		(exported.edges[0].label_background as EdgeLabelBackground).color = 'red';
+		expect(loaded.edges[0].animation?.speed).toBe(2);
+		expect(loaded.edges[0].label_background).toEqual(label_background);
+	});
+
+	it.each([true, false, undefined])('preserves label background %s and absent animation', (background) => {
+		const edge = { ...styledEdge(), label_background: background, animation: undefined, animated: undefined };
+		const flow = new FlowState([node('a'), node('b')], [edge]);
+		flow.fromJSON(JSON.parse(JSON.stringify(flow.toJSON())));
+		expect(flow.edges[0].label_background).toBe(background);
+		expect(flow.edges[0].animation).toBeUndefined();
+		expect(flow.edges[0].animated).toBeUndefined();
+	});
+
+	it('isolates constructor input and exported option objects', () => {
+		const edge = styledEdge();
+		const flow = new FlowState([node('a'), node('b')], [edge]);
+		edge.animation!.speed = 99;
+		(edge.label_background as EdgeLabelBackground).color = 'red';
+		expect(flow.edges[0].animation).toEqual(animation);
+		expect(flow.edges[0].label_background).toEqual(label_background);
+		const exported = flow.toJSON();
+		exported.edges[0].animation!.speed = 100;
+		(exported.edges[0].label_background as EdgeLabelBackground).padding = 100;
+		expect(flow.edges[0].animation).toEqual(animation);
+		expect(flow.edges[0].label_background).toEqual(label_background);
+	});
+
+	it('preserves isolated option objects through undo and redo', () => {
+		const flow = new FlowState([node('a'), node('b')], [styledEdge()]);
+		flow.pushSnapshot();
+		flow.edges[0].animation!.speed = 10;
+		(flow.edges[0].label_background as EdgeLabelBackground).padding = 10;
+		expect(flow.undo()).toBe(true);
+		expect(flow.edges[0].animation).toEqual(animation);
+		expect(flow.edges[0].label_background).toEqual(label_background);
+		flow.edges[0].animation!.speed = 20;
+		(flow.edges[0].label_background as EdgeLabelBackground).padding = 20;
+		expect(flow.redo()).toBe(true);
+		expect(flow.edges[0].animation?.speed).toBe(10);
+		expect((flow.edges[0].label_background as EdgeLabelBackground).padding).toBe(10);
+	});
+
+	it('includes edge options in selected JSON', () => {
+		const flow = new FlowState([node('a'), node('b')], [styledEdge()]);
+		flow.selected_edge_ids = new Set(['a-b']);
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			flow.logSelected();
+			expect(JSON.parse(log.mock.calls[1][0]).edges[0]).toMatchObject(styledEdge());
+		} finally {
+			log.mockRestore();
+		}
+	});
+
+	it('isolates copied options from originals and repeated internal or external pastes', () => {
+		const flow = new FlowState([node('a'), node('b')], [styledEdge()]);
+		flow.selected_node_ids = new Set(['a', 'b']);
+		flow.copySelected();
+		flow.edges[0].animation!.speed = 99;
+		(flow.edges[0].label_background as EdgeLabelBackground).padding = 99;
+		flow.paste();
+		expect(flow.edges[1].animation).toEqual(animation);
+		expect(flow.edges[1].label_background).toEqual(label_background);
+		flow.edges[1].animation!.speed = 100;
+		(flow.edges[1].label_background as EdgeLabelBackground).padding = 100;
+		flow.paste();
+		expect(flow.edges[2].animation).toEqual(animation);
+		expect(flow.edges[2].label_background).toEqual(label_background);
+
+		const clipboard = { nodes: [node('a'), node('b')], edges: [styledEdge()] };
+		flow.paste(undefined, clipboard);
+		clipboard.edges[0].animation!.speed = 101;
+		(clipboard.edges[0].label_background as EdgeLabelBackground).padding = 101;
+		expect(flow.edges[3].animation).toEqual(animation);
+		expect(flow.edges[3].label_background).toEqual(label_background);
+	});
+
 	it('filters dangling edges on initial load and fromJSON', () => {
 		const flow = new FlowState([node('a')], [
 			{ id: 'dangling', source: 'a', source_handle: 'out', target: 'missing', target_handle: 'in' },

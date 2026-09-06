@@ -93,6 +93,29 @@ export type EdgeType = BuiltinEdgeType | (string & {});
 // Edge stroke style
 export type EdgeStyle = 'solid' | 'dashed' | 'dotted';
 
+export interface EdgeLabelBackground {
+	color?: string;
+	// Background fill only: 0 is transparent, 1 is opaque (default).
+	opacity?: number;
+	padding?: number;
+	radius?: number;
+}
+
+export type EdgeAnimationPattern = 'dashes' | 'dots' | 'bands' | 'squares' | 'diamonds';
+
+export interface EdgeAnimation {
+	pattern?: EdgeAnimationPattern;
+	// Canvas units/second (default 48); 0 freezes, positive values clamp to 0.01-10000.
+	speed?: number;
+	color?: string;
+	// Dot diameter / square side; dash and band length is 3 * size (default 4).
+	size?: number;
+	// Visible gap in canvas units (default 20); shapes may spread to cap particle count.
+	spacing?: number;
+	reverse?: boolean;
+	paused?: boolean;
+}
+
 // Flow edge definition
 export interface FlowEdge<T = Record<string, unknown>> {
 	// Unique edge ID
@@ -109,14 +132,17 @@ export interface FlowEdge<T = Record<string, unknown>> {
 	type?: EdgeType;
 	// Optional label
 	label?: string;
+	label_background?: boolean | EdgeLabelBackground;
 	// Optional: whether the edge is selected
 	selected?: boolean;
 	// Optional: waypoints for custom edge routing
 	waypoints?: Position[];
 	// Optional: stroke style (solid, dashed, dotted)
 	style?: EdgeStyle;
-	// Optional: whether the edge is animated (dashed lines move)
+	// Optional: sole enable switch for edge animation
 	animated?: boolean;
+	// Optional: JSON-safe animation options; does not enable animation on its own
+	animation?: EdgeAnimation;
 	// Optional: custom stroke color
 	color?: string;
 	// Optional custom data for custom edge components

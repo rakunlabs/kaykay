@@ -3,6 +3,8 @@
 	import type { Component } from 'svelte';
 	import type { FlowEdge, Position, EdgeStyle, EdgeType, BuiltinEdgeType, EdgeProps } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
+	import EdgeLabel from './EdgeLabel.svelte';
+	import EdgeAnimation from './EdgeAnimation.svelte';
 	import { getEdgePathWithWaypoints, getEdgeCenter } from '../utils/edge-path.js';
 
 	interface Props {
@@ -671,23 +673,10 @@
 		class="kaykay-edge"
 		class:selected
 		class:animated={isAnimated}
+		class:legacy_animated={isAnimated && edge.animation === undefined}
 		class:highlighted={isHighlighted}
 		style:color={strokeColor}
 	>
-		<!-- Arrow marker definition -->
-		<defs>
-			<marker
-				id="arrow-{edge.id}"
-				markerWidth="12"
-				markerHeight="12"
-				refX="6"
-				refY="6"
-				orient="auto"
-			>
-				<path d="M 0 0 L 12 6 L 0 12 L 3 6 Z" fill={strokeColor} />
-			</marker>
-		</defs>
-
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- Invisible wider path for easier selection -->
@@ -702,8 +691,11 @@
 			class="kaykay-edge-path"
 			d={combinedPath}
 			style:stroke={strokeColor}
-			style:stroke-dasharray={strokeDashArray}
+			style:stroke-dasharray={isAnimated && edge.animation?.pattern === 'bands' ? 'none' : strokeDashArray}
 		/>
+		{#if isAnimated && edge.animation}
+			<EdgeAnimation path={combinedPath} animation={edge.animation} stroke_width={selected || isHighlighted ? 3 : 2} />
+		{/if}
 
 		<!-- Animated arrows on selected edge -->
 		{#if selected}
@@ -730,9 +722,7 @@
 		{/if}
 
 		{#if edge.label}
-			<text class="kaykay-edge-label" x={label_position.x} y={label_position.y}>
-				{edge.label}
-			</text>
+			<EdgeLabel label={edge.label} position={label_position} background={edge.label_background} />
 		{/if}
 
 		<!-- Waypoint handles -->
@@ -804,7 +794,7 @@
 	}
 
 	/* Animation for dashed/dotted edges */
-	.kaykay-edge.animated .kaykay-edge-path {
+	.kaykay-edge.legacy_animated .kaykay-edge-path {
 		animation: dash-flow 0.5s linear infinite;
 	}
 
@@ -814,13 +804,9 @@
 		}
 	}
 
-	.kaykay-edge-label {
-		fill: var(--kaykay-edge-label, #888);
-		font-size: 12px;
-		text-anchor: middle;
-		dominant-baseline: middle;
-		pointer-events: none;
-		user-select: none;
+	@media (prefers-reduced-motion: reduce) {
+		.kaykay-edge.legacy_animated .kaykay-edge-path { animation-play-state: paused; }
+		.kaykay-edge-arrow-head { display: none; }
 	}
 
 	.kaykay-waypoint {

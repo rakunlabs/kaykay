@@ -341,6 +341,9 @@ Register custom edge components with `edgeTypes`. Custom edge components receive
   {path}
   {selected}
   label={edge.label}
+  label_background={edge.label_background}
+  animated={edge.animated}
+  animation={edge.animation}
   {label_position}
   color={edge.data?.tone ?? '#3b82f6'}
   onclick={(event) => {
@@ -371,6 +374,60 @@ const edges = [
 ```
 
 Selected built-in edges also expose reconnect anchors. Drag either endpoint to another compatible handle to reconnect the existing edge.
+
+### Label Backgrounds and Traffic Animation
+
+These options work on built-in edges and on `BaseEdge`. Custom renderers must forward the props, as above.
+
+```typescript
+const edge: FlowEdge = {
+  id: 'api-db',
+  source: 'api', source_handle: 'out',
+  target: 'db', target_handle: 'in',
+  label: '100 req/s',
+  label_background: { padding: 5, radius: 4 },
+  color: '#64748b',
+  animated: true,
+  animation: {
+    pattern: 'bands',
+    color: '#22c55e',
+    speed: 60,
+    size: 6,
+    spacing: 24,
+    reverse: false,
+    paused: false
+  }
+};
+```
+
+`label_background: true` adds an automatically measured, theme-aware background behind the label, above the line and animation. Use an object to set `color`, `padding` (default 4), and `radius` (default 4), in canvas units. Omitted or `false` keeps the existing text-only appearance. Theme it with `--kaykay-edge-label-bg`; text uses `--kaykay-edge-label`.
+
+Set `label_background: { opacity: 0.8 }` for a translucent background without fading the text. Opacity defaults to 1 and clamps to 0-1; 0 is fully transparent. It multiplies any alpha already present in `color`.
+
+| Animation option | Behavior |
+| --- | --- |
+| `pattern` | `dots` (default), `dashes`, `squares`, `diamonds`, or `bands` |
+| `speed` | Canvas units per second, default 48; 0 freezes motion |
+| `color` | Defaults to the edge color; use a contrasting color for bands |
+| `size` | Default 4; dot diameter / square side; dash and band length is 3 times this value |
+| `spacing` | Gap in canvas units, default 20; shape particles distribute evenly and are capped at 256 per edge |
+| `reverse` | Reverse the visual direction; does not change source/target |
+| `paused` | Freeze motion without removing the pattern |
+
+Bands replace the base dash style with a solid line and move flat color sections along it. Band thickness follows the edge stroke; `BaseEdge` also exposes `stroke_width`. Square/diamond particles use CSS motion paths. All animated patterns respect `prefers-reduced-motion`.
+
+`animated` is the enable switch; `animation` alone does not start motion. Without an `animation` object, existing dashed/dotted edge animation is unchanged. Built-in selection arrows remain a separate selection affordance, independent of these options.
+
+Negative speed freezes motion; invalid/nonfinite numbers use defaults. Rendering bounds positive speed to 0.01-10,000, size to 0.1-256, gap to 0-10,000, and label padding/radius to 0-256 canvas units. These bounds do not rewrite saved values. Speed changes preserve the current animation position, including while paused.
+
+Options survive JSON export/import, history, clipboard, and virtual wires. `updateEdge` shallow-merges updates, so merge the existing `animation` object when changing one option:
+
+```typescript
+const edge = flow.getEdge('api-db');
+if (edge) flow.updateEdge(edge.id, { animation: { ...edge.animation, speed: 120 } });
+```
+
+For arbitrary SVG shapes or more than two alternating colors, register a custom component through `edgeTypes`. The Live System example shows controls for all built-in patterns without adding simulation telemetry to undo history.
 
 ## Overlay Components
 
