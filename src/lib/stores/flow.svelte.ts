@@ -1,4 +1,5 @@
-import { getContext, setContext } from 'svelte';
+import { getContext, setContext, untrack } from 'svelte';
+import { deepEqual } from '../utils/deep-equal.js';
 import type {
 	FlowNode,
 	FlowEdge,
@@ -286,7 +287,7 @@ export class FlowState {
 	updateNodePosition(node_id: string, position: Position): void {
 		if (this.locked) return;
 
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			// Apply grid snapping if enabled
 			if (this.config.snap_to_grid && this.config.grid_size) {
@@ -307,7 +308,7 @@ export class FlowState {
 		if (this.locked) return;
 
 		this.pushSnapshot();
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			node.data = { ...node.data, ...data };
 			this.notifyChange('node:data');
@@ -315,7 +316,7 @@ export class FlowState {
 	}
 
 	updateNodeDimensions(node_id: string, width: number, height: number): void {
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			if (Math.abs(node.computed_width - width) < 0.1 && Math.abs(node.computed_height - height) < 0.1) return;
 			node.computed_width = width;
@@ -327,7 +328,7 @@ export class FlowState {
 		if (this.locked) return;
 
 		this.pushSnapshot();
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			node.width = width;
 			node.height = height;
@@ -389,8 +390,41 @@ export class FlowState {
 		}
 	}
 
+	// Index behind getNode. `nodes` is a $state proxy, so a linear find() reads
+	// every element until it matches and registers one dependency per element
+	// on whatever derived or effect is running -- and getNode is called from
+	// per-node and per-handle effects, which made it O(nodes^2) dependencies to
+	// register and re-check on every change. Looking through the index reads
+	// only the array binding and its length.
+	//
+	// It rebuilds when the array is replaced or its length changes, which
+	// between them cover every mutation this class performs: reassignment
+	// (constructor, fromJSON, restoreFromSnapshot, removeNode) and push
+	// (addNode, paste). Node ids are never rewritten in place. The rebuild runs
+	// untracked so that the caller that happens to trigger it does not inherit
+	// a dependency on every node.
+	private node_index = new Map<string, NodeState>();
+	private node_index_source: NodeState[] | null = null;
+	private node_index_size = -1;
+
+	private nodeIndex(): Map<string, NodeState> {
+		const nodes = this.nodes;
+		const size = nodes.length;
+		if (this.node_index_source === nodes && this.node_index_size === size) {
+			return this.node_index;
+		}
+
+		untrack(() => {
+			this.node_index = new Map();
+			for (const node of nodes) this.node_index.set(node.id, node);
+		});
+		this.node_index_source = nodes;
+		this.node_index_size = size;
+		return this.node_index;
+	}
+
 	getNode(node_id: string): NodeState | undefined {
-		return this.nodes.find((n) => n.id === node_id);
+		return this.nodeIndex().get(node_id);
 	}
 
 	// ============ Group Operations ============
@@ -490,7 +524,7 @@ export class FlowState {
 	// ============ Handle Operations ============
 
 	registerHandle(node_id: string, handle: HandleState): void {
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			node.handles.set(handle.id, handle);
 		}
@@ -500,7 +534,7 @@ export class FlowState {
 	}
 
 	unregisterHandle(node_id: string, handle_id: string): void {
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			node.handles.delete(handle_id);
 		}
@@ -513,7 +547,7 @@ export class FlowState {
 		const key = `${node_id}:${handle_id}`;
 		
 		// Update node's handle map
-		const node = this.nodes.find((n) => n.id === node_id);
+		const node = this.getNode(node_id);
 		if (node) {
 			const handle = node.handles.get(handle_id);
 			if (handle) {
@@ -913,8 +947,18 @@ export class FlowState {
 	}
 
 	clearSelection(): void {
-		this.selected_node_ids = new Set();
-		this.selected_edge_ids = new Set();
+		// Replacing the sets invalidates every node's and every edge's
+		// `selected` binding, so clearing an already empty selection re-reads
+		// the whole canvas for no change. Canvas calls this on every background
+		// mousedown, which is the start of every pan.
+		//
+		// The callback still fires: consumers treat it as "the selection is now
+		// empty" and one of them may be holding a stale idea of it, which is
+		// not this method's business to decide.
+		if (this.selected_node_ids.size > 0 || this.selected_edge_ids.size > 0) {
+			this.selected_node_ids = new Set();
+			this.selected_edge_ids = new Set();
+		}
 		this.notifySelectionChange();
 	}
 
@@ -1013,13 +1057,33 @@ export class FlowState {
 	// ============ Viewport ============
 
 	setViewport(viewport: Viewport): void {
-		this.viewport = {
-			x: viewport.x,
-			y: viewport.y,
-			zoom: Math.max(this.config.min_zoom!, Math.min(this.config.max_zoom!, viewport.zoom)),
-		};
-		this.callbacks.on_viewport_change?.(this.viewport);
-		this.notifyChange('viewport:update');
+		const zoom = Math.max(this.config.min_zoom!, Math.min(this.config.max_zoom!, viewport.zoom));
+
+		// Assign per field instead of replacing the object. `viewport` is a $state
+		// proxy, so replacing it invalidates every reader whatever property they
+		// went on to read: a pure pan woke up everything that reads
+		// `viewport.zoom`, most expensively Node's dimension effect, which then
+		// forced a synchronous layout on every pointer event. Per-field writes
+		// notify only the fields that actually moved, so panning no longer
+		// invalidates zoom readers and zooming no longer invalidates x/y readers.
+		if (this.viewport.x !== viewport.x) this.viewport.x = viewport.x;
+		if (this.viewport.y !== viewport.y) this.viewport.y = viewport.y;
+		if (this.viewport.zoom !== zoom) this.viewport.zoom = zoom;
+
+		// A plain copy, not the proxy: the object identity is now stable, so
+		// handing out `this.viewport` would give callers a reference that mutates
+		// under them and defeats any `prev !== next` comparison they make.
+		this.callbacks.on_viewport_change?.({
+			x: this.viewport.x,
+			y: this.viewport.y,
+			zoom: this.viewport.zoom,
+		});
+
+		// Deliberately no notifyChange here. It calls on_change with toJSON(),
+		// which carries nodes and edges and no viewport at all -- so a consumer
+		// wiring on_change was handed a structuredClone of the entire graph,
+		// once per frame while panning, to be told about a change the payload
+		// cannot express. on_viewport_change above is the callback that can.
 	}
 
 	pan(dx: number, dy: number): void {
@@ -1345,7 +1409,12 @@ export class FlowState {
 	private addHistorySnapshot(snapshot: Flow): void {
 		const max_history = this.config.max_history ?? 50;
 		const previous = this.history_stack[this.history_stack.length - 1];
-		if (previous && JSON.stringify(previous) === JSON.stringify(snapshot)) return;
+		// deepEqual rather than comparing two JSON.stringify results: this runs
+		// on every undoable operation, including the end of every node drag,
+		// and stringifying both graphs serialised every node's data twice
+		// before it could report the difference that is usually in the first
+		// field looked at.
+		if (previous && deepEqual(previous, snapshot)) return;
 		this.history_stack = [...this.history_stack.slice(-(max_history - 1)), snapshot];
 	}
 

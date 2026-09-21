@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getContext, onDestroy } from 'svelte';
+	import { getContext, onDestroy, untrack } from 'svelte';
 	import type { Component } from 'svelte';
 	import type { NodeState, NodeProps, NodeStatus, Position } from '../types/index.js';
 	import type { FlowState } from '../stores/flow.svelte.js';
@@ -32,12 +32,40 @@
 		return !!target.closest('input, textarea, select, button, [contenteditable="true"], [data-kaykay-no-drag]');
 	}
 
-	// Update node dimensions when mounted
+	// Track the node's laid-out size.
+	//
+	// This used to measure with getBoundingClientRect() inside the effect, which
+	// returns the *transformed* rect and so had to be divided by
+	// `flow.viewport.zoom`. Reading the viewport made every node's effect a
+	// viewport subscriber, so panning re-ran it for every node and each run
+	// forced a synchronous layout — on every pointer event, of which a
+	// high-polling-rate mouse delivers several per frame. It also never fired
+	// when a node's own content changed size, which is the one thing it exists
+	// to notice.
+	//
+	// ResizeObserver reports border-box *layout* size. Ancestor transforms do
+	// not affect layout, so there is no zoom term at all, and the callback runs
+	// after layout is already computed rather than forcing it.
 	$effect(() => {
-		if (nodeEl) {
-			const rect = nodeEl.getBoundingClientRect();
-			flow.updateNodeDimensions(node.id, rect.width / flow.viewport.zoom, rect.height / flow.viewport.zoom);
-		}
+		if (!nodeEl) return;
+		const el = nodeEl;
+		const node_id = node.id;
+
+		// Measure once synchronously so callers that read computed_width right
+		// after mount (fitView, group bounds) see a real size, as they did
+		// before. ResizeObserver's first callback is async.
+		untrack(() => flow.updateNodeDimensions(node_id, el.offsetWidth, el.offsetHeight));
+
+		if (typeof ResizeObserver === 'undefined') return;
+
+		const observer = new ResizeObserver((entries) => {
+			const box = entries[0]?.borderBoxSize?.[0];
+			if (box) flow.updateNodeDimensions(node_id, box.inlineSize, box.blockSize);
+			else flow.updateNodeDimensions(node_id, el.offsetWidth, el.offsetHeight);
+		});
+		observer.observe(el);
+
+		return () => observer.disconnect();
 	});
 
 	function handleMouseDown(e: MouseEvent) {

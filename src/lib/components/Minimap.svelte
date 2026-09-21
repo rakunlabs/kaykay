@@ -293,7 +293,9 @@
 >
 	<svg {width} {height}>
 		<!-- Render nodes (skip nodes inside groups - they have parent_id) -->
-		{#each flow.nodes as node}
+		<!-- Keyed: unkeyed each re-uses blocks by index, so removing a node in
+		     the middle repatches every rect after it instead of dropping one. -->
+		{#each flow.nodes as node (node.id)}
 			{#if !node.parent_id}
 				{@const pos = toMinimapPos(node.position.x, node.position.y)}
 				{@const nodeWidth = (node.computed_width || 100) * scale}
@@ -311,7 +313,7 @@
 		{/each}
 
 		<!-- Render edges -->
-		{#each flow.edges as edge}
+		{#each flow.edges as edge (edge.id)}
 			{@const sourcePos = flow.getHandlePosition(edge.source, edge.source_handle)}
 			{@const targetPos = flow.getHandlePosition(edge.target, edge.target_handle)}
 			{#if sourcePos && targetPos}

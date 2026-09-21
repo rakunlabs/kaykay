@@ -143,34 +143,66 @@
 		};
 	}
 
-	// Update position when node moves - only after initialization
+	// Re-measure the handle's offset *within* its node.
+	//
+	// This is deliberately separate from publishing the absolute position
+	// below. The two used to be one effect that tracked the node's position and
+	// re-measured on every change -- so dragging a node ran
+	// calculateHandleOffset() for each of its handles on every pointer event,
+	// and each call makes two getBoundingClientRect() calls right after the
+	// node's transform was written, forcing a synchronous layout. A node with
+	// six handles paid twelve forced layouts per event, several times a frame.
+	//
+	// Moving a node cannot change where a handle sits inside it. Only the
+	// node's box or the handle's own metadata can, so only those are tracked.
 	$effect(() => {
 		if (!isInitialized || !node_id || !handleEl) return;
-		
+		const el = handleEl;
+
 		const node = flow.getNode(node_id);
 		if (!node) return;
-		
-		// Track node position to trigger recalculation
-		void node.position.x;
-		void node.position.y;
+
 		void node.computed_width;
 		void node.computed_height;
-		
-		// Also track parent position if node has a parent
-		if (node.parent_id) {
-			const parent = flow.getNode(node.parent_id);
-			if (parent) {
-				void parent.position.x;
-				void parent.position.y;
-			}
-		}
+		void effectivePosition;
 
-		const offset = calculateHandleOffset();
-		if (!offset) return;
+		// Untracked: calculateHandleOffset reads viewport.zoom to convert the
+		// measured screen rect back to layout pixels. The offset it produces is
+		// zoom-independent, so subscribing to zoom only bought a re-measure
+		// that returns the same number.
+		const measure = () => untrack(() => {
+			const offset = calculateHandleOffset();
+			if (offset) handle_offset = offset;
+		});
 
-		handle_offset = offset;
-		const absolute_position = getAbsolutePosition(offset);
-		flow.updateHandlePosition(node_id, id, absolute_position);
+		measure();
+
+		if (typeof ResizeObserver === 'undefined') return;
+
+		// The handle's own box can change while the node's does not -- a label
+		// growing inside a fixed-width node -- and nothing above would notice.
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		return () => observer.disconnect();
+	});
+
+	// Publish the absolute position whenever the node -- or any ancestor it
+	// hangs off -- moves. flow.getAbsolutePosition walks the whole parent
+	// chain, so reading it subscribes to every ancestor's position; the manual
+	// tracking it replaces only ever looked one level up and so missed nested
+	// groups.
+	$effect(() => {
+		if (!isInitialized || !node_id) return;
+
+		const offset = handle_offset;
+		const node_position = flow.getAbsolutePosition(node_id);
+
+		untrack(() =>
+			flow.updateHandlePosition(node_id, id, {
+				x: node_position.x + offset.x,
+				y: node_position.y + offset.y,
+			})
+		);
 	});
 
 	const connection_validation = $derived.by(() => {

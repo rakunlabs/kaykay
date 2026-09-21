@@ -375,3 +375,123 @@ describe('FlowState history transactions', () => {
 		expect(flow.canUndo).toBe(false);
 	});
 });
+
+describe('FlowState viewport', () => {
+	// `viewport` is a $state proxy, which tracks per property: a reader of
+	// `viewport.zoom` is woken by a write to `zoom`, not by a write to `x`.
+	// Replacing the object defeats that and invalidates every reader whatever
+	// they went on to read -- which made a pure pan re-run Node's dimension
+	// effect for every node, each forcing a synchronous layout, on every
+	// pointer event. Stable identity is the mechanism, so that is what is
+	// pinned here.
+	//
+	// The notification itself is not asserted: these tests run under Svelte's
+	// server build, where $effect is a no-op, so an effect-counting test would
+	// pass by never running. Observing it needs a DOM environment for vitest.
+	it('updates in place instead of replacing the object', () => {
+		const flow = new FlowState();
+		const viewport = flow.viewport;
+
+		flow.pan(50, 25);
+		expect(flow.viewport).toBe(viewport);
+		expect(flow.viewport).toEqual({ x: 50, y: 25, zoom: 1 });
+
+		flow.setZoom(2);
+		expect(flow.viewport).toBe(viewport);
+		expect(flow.viewport).toEqual({ x: 50, y: 25, zoom: 2 });
+
+		flow.zoom(-0.5, { x: 0, y: 0 });
+		expect(flow.viewport).toBe(viewport);
+		expect(flow.viewport.zoom).toBe(1);
+	});
+
+	it('reports viewport changes as a detached copy', () => {
+		const on_viewport_change = vi.fn();
+		const flow = new FlowState([], [], {}, { on_viewport_change });
+
+		flow.pan(10, 0);
+		const first = on_viewport_change.mock.calls[0][0];
+
+		// The stored viewport is now a stable object, so handing the caller that
+		// object would give it a reference that mutates underneath and defeats
+		// any prev !== next comparison it makes.
+		flow.pan(10, 0);
+		expect(first).toEqual({ x: 10, y: 0, zoom: 1 });
+		expect(on_viewport_change).toHaveBeenLastCalledWith({ x: 20, y: 0, zoom: 1 });
+	});
+
+	it('clamps zoom to the configured bounds', () => {
+		const flow = new FlowState([], [], { min_zoom: 0.5, max_zoom: 2 });
+
+		flow.setZoom(10);
+		expect(flow.viewport.zoom).toBe(2);
+
+		flow.setZoom(0.01);
+		expect(flow.viewport.zoom).toBe(0.5);
+	});
+});
+
+describe('FlowState node index', () => {
+	// getNode looks through a Map rather than scanning the $state array, so it
+	// registers two dependencies instead of one per node on every caller --
+	// and getNode is reached from per-node and per-handle effects. The index is
+	// rebuilt when the array is replaced or its length changes; these are the
+	// mutations that have to keep it honest.
+	it('stays consistent across every path that mutates nodes', () => {
+		const flow = new FlowState([node('a'), node('b')], []);
+
+		expect(flow.getNode('a')?.id).toBe('a');
+		expect(flow.getNode('missing')).toBeUndefined();
+
+		// push
+		const added = flow.addNode(node('c'));
+		expect(added).toBe('c');
+		expect(flow.getNode('c')?.id).toBe('c');
+
+		// filter reassignment
+		flow.removeNode('b');
+		expect(flow.getNode('b')).toBeUndefined();
+		expect(flow.getNode('a')?.id).toBe('a');
+		expect(flow.getNode('c')?.id).toBe('c');
+
+		// map reassignment, and an id that existed before must not survive it
+		flow.fromJSON({ nodes: [node('d')], edges: [] });
+		expect(flow.getNode('a')).toBeUndefined();
+		expect(flow.getNode('c')).toBeUndefined();
+		expect(flow.getNode('d')?.id).toBe('d');
+
+		// re-adding an id the index has seen before
+		flow.addNode(node('a'));
+		expect(flow.getNode('a')?.id).toBe('a');
+	});
+
+	it('returns the live node, not a detached copy', () => {
+		const flow = new FlowState([node('a')], []);
+
+		flow.updateNodePosition('a', { x: 7, y: 9 });
+		expect(flow.getNode('a')?.position).toEqual({ x: 7, y: 9 });
+		expect(flow.nodes[0].position).toEqual({ x: 7, y: 9 });
+
+		// Writing through the indexed reference must be visible on the array.
+		const indexed = flow.getNode('a')!;
+		indexed.position = { x: 1, y: 2 };
+		expect(flow.nodes[0].position).toEqual({ x: 1, y: 2 });
+	});
+
+	it('survives a restore that replaces the array with the same length', () => {
+		const flow = new FlowState([node('a'), node('b')], []);
+
+		flow.updateNodeData('a', { label: 'changed' });
+		expect(flow.getNode('a')?.data).toMatchObject({ label: 'changed' });
+
+		// undo swaps in a freshly built array of identical length -- the case a
+		// length-only check would miss, which is why identity is checked too.
+		expect(flow.undo()).toBe(true);
+		expect(flow.nodes).toHaveLength(2);
+		expect(flow.getNode('a')?.data).toMatchObject({ label: 'a' });
+		expect(flow.getNode('b')?.id).toBe('b');
+
+		expect(flow.redo()).toBe(true);
+		expect(flow.getNode('a')?.data).toMatchObject({ label: 'changed' });
+	});
+});

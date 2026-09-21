@@ -106,13 +106,106 @@
 	let isSelecting = $state(false);
 	let selectionMode = $state<'replace' | 'add' | 'subtract' | 'toggle'>('toggle');
 	let lastMousePos = $state<Position | null>(null);
-	let mouseCanvasPos = $state<Position>({ x: 0, y: 0 });
 	let connectionDragDistance = $state(0); // Track how far mouse moved during connection
 
 	// Touch state for panning
 	let lastTouchCenter = $state<Position | null>(null);
 	let lastTouchDistance = $state<number | null>(null);
 	let isTouchPanning = $state(false);
+
+	// ─── Pointer position ───
+	//
+	// The latest pointer position is kept in client coordinates and converted to
+	// canvas coordinates on demand. The conversion needs
+	// getBoundingClientRect(), which forces layout, and it used to run on every
+	// single mousemove to keep a value that only paste and the selection
+	// rectangle ever read.
+
+	let lastClientPos: Position | null = null;
+
+	function clientToCanvasPos(client: Position): Position {
+		if (!containerEl) return { x: 0, y: 0 };
+		const rect = containerEl.getBoundingClientRect();
+		return flow.screenToCanvas({ x: client.x - rect.left, y: client.y - rect.top });
+	}
+
+	function pointerCanvasPos(): Position {
+		return lastClientPos ? clientToCanvasPos(lastClientPos) : { x: 0, y: 0 };
+	}
+
+	// ─── Frame-coalesced pointer work ───
+	//
+	// Pointer events outpace frames: a high-polling-rate mouse or a trackpad
+	// delivers several per animation frame, and each one mutated the viewport,
+	// re-rendered and repainted. None of that can be seen more than once per
+	// frame, so record what happened and apply it on the next one. Pan deltas
+	// accumulate — their sum is the identical translation — while positions are
+	// last-wins. Paths that also zoom stay synchronous, because pan and zoom
+	// have to be applied together or a pinch visibly wobbles.
+
+	let pendingPan: Position | null = null;
+	let pendingSelectionClient: Position | null = null;
+	let pendingConnectionClient: Position | null = null;
+	let pointerFrame: number | null = null;
+
+	function schedulePan(dx: number, dy: number) {
+		if (pendingPan) {
+			pendingPan.x += dx;
+			pendingPan.y += dy;
+		} else {
+			pendingPan = { x: dx, y: dy };
+		}
+		schedulePointerFrame();
+	}
+
+	function schedulePointerFrame() {
+		if (pointerFrame !== null) return;
+		pointerFrame = requestAnimationFrame(flushPointerFrame);
+	}
+
+	function flushPointerFrame() {
+		pointerFrame = null;
+
+		if (pendingPan) {
+			const { x, y } = pendingPan;
+			pendingPan = null;
+			flow.pan(x, y);
+		}
+
+		// Converted after the pan, against the viewport this frame will show.
+		if (pendingSelectionClient) {
+			const client = pendingSelectionClient;
+			pendingSelectionClient = null;
+			if (flow.selection_rect) flow.updateSelectionRect(clientToCanvasPos(client));
+		}
+
+		if (pendingConnectionClient) {
+			const client = pendingConnectionClient;
+			pendingConnectionClient = null;
+			if (flow.draft_connection) flow.updateConnection(clientToCanvasPos(client));
+		}
+	}
+
+	// Apply whatever is still queued immediately. Called when an interaction
+	// ends, so the committed position is the one the pointer finished at rather
+	// than one up to a frame stale.
+	function flushPointerWork() {
+		if (pointerFrame !== null) {
+			cancelAnimationFrame(pointerFrame);
+			pointerFrame = null;
+		}
+		flushPointerFrame();
+	}
+
+	function discardPointerWork() {
+		if (pointerFrame !== null) {
+			cancelAnimationFrame(pointerFrame);
+			pointerFrame = null;
+		}
+		pendingPan = null;
+		pendingSelectionClient = null;
+		pendingConnectionClient = null;
+	}
 
 	// Track canvas dimensions for fitView
 	onMount(() => {
@@ -126,7 +219,10 @@
 		const resizeObserver = new ResizeObserver(updateSize);
 		resizeObserver.observe(containerEl);
 
-		return () => resizeObserver.disconnect();
+		return () => {
+			resizeObserver.disconnect();
+			discardPointerWork();
+		};
 	});
 
 	// Handle mouse wheel for panning (default) or zooming (Ctrl+scroll)
@@ -142,7 +238,7 @@
 			flow.zoom(-e.deltaY * 0.001, center);
 		} else if (flow.config.pan_on_scroll) {
 			// Normal scroll / two-finger trackpad: pan
-			flow.pan(-e.deltaX, -e.deltaY);
+			schedulePan(-e.deltaX, -e.deltaY);
 		}
 	}
 
@@ -170,12 +266,8 @@
 			e.preventDefault();
 			isSelecting = true;
 			selectionMode = e.altKey ? 'subtract' : e.shiftKey ? 'add' : e.ctrlKey || e.metaKey ? 'toggle' : 'replace';
-			const rect = containerEl.getBoundingClientRect();
-			const canvas_pos = flow.screenToCanvas({
-				x: e.clientX - rect.left,
-				y: e.clientY - rect.top,
-			});
-			flow.startSelectionRect(canvas_pos);
+			lastClientPos = { x: e.clientX, y: e.clientY };
+			flow.startSelectionRect(clientToCanvasPos(lastClientPos));
 			return;
 		}
 		
@@ -192,25 +284,19 @@
 
 	// Handle mouse move
 	function handleMouseMove(e: MouseEvent) {
-		// Always track mouse position in canvas coordinates for paste
-		if (containerEl) {
-			const rect = containerEl.getBoundingClientRect();
-			mouseCanvasPos = flow.screenToCanvas({
-				x: e.clientX - rect.left,
-				y: e.clientY - rect.top,
-			});
-		}
+		// Track the pointer for paste and for the work queued below. Converting
+		// to canvas coordinates is deferred to the frame that uses it.
+		lastClientPos = { x: e.clientX, y: e.clientY };
 
 		// Handle selection rectangle
 		if (isSelecting && flow.selection_rect) {
-			flow.updateSelectionRect(mouseCanvasPos);
+			pendingSelectionClient = lastClientPos;
+			schedulePointerFrame();
 			return;
 		}
 
 		if (isPanning && lastMousePos) {
-			const dx = e.clientX - lastMousePos.x;
-			const dy = e.clientY - lastMousePos.y;
-			flow.pan(dx, dy);
+			schedulePan(e.clientX - lastMousePos.x, e.clientY - lastMousePos.y);
 			lastMousePos = { x: e.clientX, y: e.clientY };
 		}
 
@@ -218,22 +304,17 @@
 		if (flow.draft_connection && containerEl) {
 			// Track that user is dragging (for drag vs click detection)
 			connectionDragDistance += Math.abs(e.movementX) + Math.abs(e.movementY);
-			
-			// Account for canvas container offset from the page
-			const rect = containerEl.getBoundingClientRect();
-			const relativeX = e.clientX - rect.left;
-			const relativeY = e.clientY - rect.top;
-			
-			const canvasPos = {
-				x: (relativeX - flow.viewport.x) / flow.viewport.zoom,
-				y: (relativeY - flow.viewport.y) / flow.viewport.zoom,
-			};
-			flow.updateConnection(canvasPos);
+			pendingConnectionClient = lastClientPos;
+			schedulePointerFrame();
 		}
 	}
 
 	// Handle mouse up
 	function handleMouseUp(e: MouseEvent) {
+		// Land the last queued frame before reading any of it back, so the
+		// committed rectangle / viewport is where the pointer finished.
+		flushPointerWork();
+
 		// Finish selection rectangle
 		if (isSelecting) {
 			isSelecting = false;
@@ -275,6 +356,7 @@
 
 	// Handle mouse leave - cancel any draft connection
 	function handleMouseLeave() {
+		flushPointerWork();
 		isPanning = false;
 		lastMousePos = null;
 		if (isSelecting) {
@@ -356,13 +438,17 @@
 
 	// Handle paste from system clipboard or internal clipboard
 	async function handlePaste() {
+		// Resolved before awaiting the clipboard: the drop point is where the
+		// pointer is when the paste is requested, not wherever it drifted to
+		// while the permission prompt was open.
+		const target = pointerCanvasPos();
 		try {
 			const text = await navigator.clipboard.readText();
 			if (text) {
 				const parsed = JSON.parse(text);
 				// Check if it's kaykay clipboard data
 				if (parsed.kaykay && parsed.nodes && parsed.edges) {
-					flow.paste(mouseCanvasPos, { nodes: parsed.nodes, edges: parsed.edges });
+					flow.paste(target, { nodes: parsed.nodes, edges: parsed.edges });
 					return;
 				}
 			}
@@ -370,7 +456,7 @@
 			// Clipboard read failed or not valid JSON - fall back to internal clipboard
 		}
 		// Fall back to internal clipboard
-		flow.paste(mouseCanvasPos);
+		flow.paste(target);
 	}
 
 	function nudgeSelectedNodes(dx: number, dy: number): void {
@@ -438,7 +524,12 @@
 	// Handle touch move for panning
 	function handleTouchMove(e: TouchEvent) {
 		if (e.touches.length === 2 && lastTouchCenter !== null) {
-			// Two-finger panning + pinch zoom
+			// Two-finger panning + pinch zoom. Applied synchronously, unlike the
+			// single-finger pan below: the pan and the zoom of one gesture have
+			// to land together or the content visibly wobbles against the
+			// fingers. Any pan queued by a preceding one-finger drag is landed
+			// first so it cannot arrive in the middle of the pinch.
+			flushPointerWork();
 			e.preventDefault();
 			const newCenter = getTouchCenter(e.touches);
 			const newDistance = getTouchDistance(e.touches);
@@ -459,24 +550,16 @@
 			lastTouchDistance = newDistance;
 		} else if (isTouchPanning && lastTouchCenter !== null && e.touches.length === 1) {
 			// Single touch panning
-			const dx = e.touches[0].clientX - lastTouchCenter.x;
-			const dy = e.touches[0].clientY - lastTouchCenter.y;
-			flow.pan(dx, dy);
+			schedulePan(e.touches[0].clientX - lastTouchCenter.x, e.touches[0].clientY - lastTouchCenter.y);
 			lastTouchCenter = { x: e.touches[0].clientX, y: e.touches[0].clientY };
 		}
 
 		// Update draft connection position for touch
 		if (flow.draft_connection && containerEl && e.touches.length === 1) {
 			const touch = e.touches[0];
-			const rect = containerEl.getBoundingClientRect();
-			const relativeX = touch.clientX - rect.left;
-			const relativeY = touch.clientY - rect.top;
-
-			const canvasPos = {
-				x: (relativeX - flow.viewport.x) / flow.viewport.zoom,
-				y: (relativeY - flow.viewport.y) / flow.viewport.zoom,
-			};
-			flow.updateConnection(canvasPos);
+			lastClientPos = { x: touch.clientX, y: touch.clientY };
+			pendingConnectionClient = lastClientPos;
+			schedulePointerFrame();
 
 			// Track movement for drag vs tap detection
 			if (lastTouchCenter) {
@@ -487,6 +570,7 @@
 
 	// Handle touch end
 	function handleTouchEnd(e: TouchEvent) {
+		flushPointerWork();
 		if (e.touches.length === 0) {
 			// Try to complete draft connection
 			if (flow.draft_connection && e.changedTouches.length > 0) {
@@ -528,6 +612,7 @@
 
 	// Handle touch cancel
 	function handleTouchCancel() {
+		flushPointerWork();
 		isTouchPanning = false;
 		lastTouchCenter = null;
 		lastTouchDistance = null;
@@ -653,12 +738,18 @@
 		cursor: grabbing;
 	}
 
+	/* These two carry the pan/zoom transform. Without a compositor layer of
+	   their own, changing it repaints every node and every edge in the same
+	   pass as the canvas's own dot-grid background, which is what made panning
+	   a large graph stutter. `will-change` makes a pan a layer translation
+	   instead. */
 	.kaykay-viewport {
 		position: absolute;
 		top: 0;
 		left: 0;
 		transform-origin: 0 0;
 		z-index: 2;
+		will-change: transform;
 	}
 
 	.kaykay-edges {
@@ -671,6 +762,7 @@
 		pointer-events: none;
 		transform-origin: 0 0;
 		z-index: 1;
+		will-change: transform;
 	}
 
 	.kaykay-edges :global(.kaykay-edge) {

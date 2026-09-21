@@ -245,6 +245,12 @@ export type FlowChangeReason =
 	| 'edge:update'
 	| 'edge:waypoint'
 	| 'selection:update'
+	/**
+	 * @deprecated No longer emitted. `on_change` receives `toJSON()`, which has
+	 * no viewport in it, so this reason described a payload that could not have
+	 * changed while costing a full clone of the graph on every pan frame. Use
+	 * `on_viewport_change`. Kept in the union so existing `switch` arms compile.
+	 */
 	| 'viewport:update'
 	| 'clipboard:paste'
 	| 'flow:load'

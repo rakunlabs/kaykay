@@ -41,6 +41,16 @@
 				<a class="kaykay-primary" href={resolve('/examples/getting-started')}>Get started <span aria-hidden="true">&rarr;</span></a>
 				<a class="kaykay-secondary" href={resolve('/playground')}>Open playground <span aria-hidden="true">&nearr;</span></a>
 			</div>
+			<div class="kaykay-links">
+				<a href="https://github.com/rakunlabs/kaykay" target="_blank" rel="noreferrer">
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.23-1.28-5.23-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5Z" /></svg>
+					GitHub
+				</a>
+				<a href="https://www.npmjs.com/package/kaykay" target="_blank" rel="noreferrer">
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zm6.666 6.668H5.334v-4H4v4H1.334V8.667h5.332v5.335zm4 0v1.333H8.001V8.667h5.334v5.335h-2.669zm12.001 0h-1.33v-4h-1.336v4h-1.335v-4h-1.33v4h-2.671V8.667h8.002v5.335zM10.665 10H12v2.667h-1.335V10z" /></svg>
+					npm
+				</a>
+			</div>
 			<div class="kaykay-install">
 				<div class="kaykay-install-heading">
 					<span>Install in your Svelte 5 app</span>
@@ -154,11 +164,15 @@
 	a:focus-visible, button:focus-visible, pre:focus-visible { outline: 2px solid var(--home-accent); outline-offset: 4px; }
 	.kaykay-intro { display: grid; grid-template-columns: minmax(290px, 0.9fr) minmax(0, 1.2fr); gap: 40px; align-items: center; }
 	.kaykay-lead { color: var(--home-muted); font-size: 16px; line-height: 1.7; max-width: 44ch; margin-top: 22px; }
-	.kaykay-actions { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 26px 0 30px; font-size: 14px; font-weight: 600; }
+	.kaykay-actions { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 26px 0 16px; font-size: 14px; font-weight: 600; }
 	.kaykay-primary { display: flex; gap: 20px; justify-content: space-between; padding: 12px 17px; color: var(--site-accent-ink); background: var(--site-accent-fill); border: 1px solid var(--site-accent-fill); border-radius: 5px; }
 	.kaykay-primary:hover { background: var(--site-accent-hover); border-color: var(--site-accent-hover); }
 	.kaykay-secondary { padding: 10px 0; }
 	.kaykay-secondary:hover { text-decoration: underline; }
+	.kaykay-links { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-bottom: 30px; font-size: 12px; }
+	.kaykay-links a { display: inline-flex; align-items: center; gap: 7px; color: var(--home-muted); }
+	.kaykay-links a:hover { color: var(--home-accent); text-decoration: underline; }
+	.kaykay-links svg { width: 14px; height: 14px; fill: currentColor; }
 	.kaykay-install-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--home-muted); font-size: 11px; }
 	.kaykay-package-options { display: flex; gap: 4px; }
 	.kaykay-package-options button { border: 0; background: none; padding: 4px 6px; border-radius: 3px; }

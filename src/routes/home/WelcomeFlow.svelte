@@ -132,7 +132,7 @@
 			<button class="kaykay-welcome-finish" type="button" onclick={() => set_interaction(false)}>Finish interacting</button>
 		{/if}
 	</div>
-	{#if interacting}<p class="kaykay-welcome-keyboard">Tab to a node, Enter to select, arrow keys to move. Escape to finish.</p>{/if}
+	<p class="kaykay-welcome-keyboard"><span class:visible={interacting}>Tab to a node, Enter to select, arrow keys to move. Escape to finish.</span></p>
 </div>
 
 <style>
@@ -177,6 +177,8 @@
 	.kaykay-welcome-canvas :global(.kaykay-node:focus-visible) { outline: 2px solid var(--site-accent); outline-offset: 4px; }
 	.kaykay-welcome-canvas :global(.kaykay-node) { --kaykay-node-selected-outline: var(--site-accent); }
 	.kaykay-welcome-keyboard { margin: 0; padding: 8px 12px; font-size: 11px; line-height: 1.5; color: var(--welcome-muted); background: var(--welcome-surface); }
+	.kaykay-welcome-keyboard span { visibility: hidden; }
+	.kaykay-welcome-keyboard span.visible { visibility: visible; }
 
 	.kaykay-welcome-activate {
 		position: absolute;
