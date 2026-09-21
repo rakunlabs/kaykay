@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FlowEdge, FlowNode } from '../types/index.js';
+import type { FlowEdge, FlowNode } from '../lib/types/index.js';
 import {
 	getConnectedEdges,
 	getIncomers,
@@ -8,7 +8,7 @@ import {
 	getViewportForBounds,
 	isEdge,
 	isNode,
-} from './graph.js';
+} from '../lib/utils/graph.js';
 
 const nodes: FlowNode[] = [
 	{ id: 'a', type: 'test', position: { x: 10, y: 20 }, width: 100, height: 50, data: {} },

@@ -5,7 +5,7 @@ import {
 	getEdgePath,
 	getEdgePathWithWaypoints,
 	getPointOnLine,
-} from './edge-path.js';
+} from '../lib/utils/edge-path.js';
 
 describe('edge path utilities', () => {
 	it('creates straight paths and centers', () => {

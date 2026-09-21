@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { EdgeAnimation, EdgeAnimationPattern, EdgeLabelBackground, Flow, FlowEdge, FlowNode, HandleState } from '../index.js';
-import { FlowState } from './flow.svelte.js';
-import { VIRTUAL_WIRE_INPUT_TYPE, VIRTUAL_WIRE_OUTPUT_TYPE } from '../utils/virtual-wire.js';
+import type { EdgeAnimation, EdgeAnimationPattern, EdgeLabelBackground, Flow, FlowEdge, FlowNode, HandleState } from '../lib/index.js';
+import { FlowState } from '../lib/stores/flow.svelte.js';
+import { VIRTUAL_WIRE_INPUT_TYPE, VIRTUAL_WIRE_OUTPUT_TYPE } from '../lib/utils/virtual-wire.js';
 
 function node(id: string): FlowNode {
 	return {

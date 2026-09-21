@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { EdgeLabelBackground, Flow, FlowEdge, FlowNode } from '../types/index.js';
+import type { EdgeLabelBackground, Flow, FlowEdge, FlowNode } from '../lib/types/index.js';
 import {
 	flattenVirtualWireFlow,
 	hydrateVirtualWireFlow,
 	resolveVirtualWireEdges,
 	VIRTUAL_WIRE_INPUT_TYPE,
 	VIRTUAL_WIRE_OUTPUT_TYPE,
-} from './virtual-wire.js';
+} from '../lib/utils/virtual-wire.js';
 
 function node(id: string, type = 'basic'): FlowNode {
 	return {

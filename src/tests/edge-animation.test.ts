@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { EdgeAnimation } from '../types/index.js';
-import { getEdgeAnimation, normalizeEdgeNumber } from './edge-animation.js';
+import type { EdgeAnimation } from '../lib/types/index.js';
+import { getEdgeAnimation, normalizeEdgeNumber } from '../lib/utils/edge-animation.js';
 
 describe('edge animation', () => {
 	it('defaults explicit options to dots at 48 canvas units per second', () => {
